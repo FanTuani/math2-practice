@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>数二真题进度</title>
+<link rel="stylesheet" href="练习资源/practice-math.css">
+<style>
+:root{color-scheme:dark;--bg:#151a21;--panel:#1b212b;--line:#303946;--muted:#aeb9c8;--text:#edf2f7;--accent:#68dfb4;--M:#55cf9b;--P:#e8bc4f;--N:#f08489;--u:#b7c0cd;--map-bg:#11151b;--M-fill:#22a06b;--P-fill:#d9a514;--N-fill:#df6262;--u-fill:#3d4654}
+*{box-sizing:border-box}body{margin:0;color:var(--text);background:var(--bg);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+button,input,select{font:inherit}button,select{cursor:pointer}button{color:inherit}a{color:var(--accent)}button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}button:disabled{cursor:default}
+body{display:grid;grid-template-columns:82px minmax(0,1fr);grid-template-rows:auto 1fr;min-height:100vh}
+.rail{grid-row:1 / span 2;position:sticky;top:0;height:100vh;background:#19212a;border-right:1px solid var(--line);padding:12px 7px}
+.mark{display:grid;place-items:center;width:39px;height:39px;margin:0 auto 22px;border:1px solid #397861;border-radius:11px;background:#213e36;color:var(--accent);font:27px/1 Georgia,serif}
+.view-tabs{display:grid;gap:6px}
+.view-tabs button{display:grid;justify-items:center;gap:3px;background:transparent;color:var(--muted);border:1px solid transparent;border-radius:7px;padding:6px 2px;white-space:nowrap;font-size:12px;line-height:1.5}
+.view-tabs button:hover{background:#252f3a;color:var(--text)}
+.view-tabs button[aria-pressed=true]{background:#24443b;border-color:#376553;color:#91edcd}
+.nav-icon{font-size:22px;line-height:1.05}
+.top{background:#19212a;border-bottom:1px solid var(--line)}
+.top-inner{min-height:62px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 clamp(14px,2.2vw,34px)}
+.breadcrumb{display:flex;align-items:center;gap:11px;min-width:0;white-space:nowrap;color:var(--muted);font-size:14px}
+.breadcrumb h1{margin:0;font-size:19px;color:var(--text);font-weight:650;line-height:1.3}
+.source{font-size:13px;color:var(--muted);text-align:right;white-space:nowrap}
+.source a{text-decoration:none;color:inherit}.source a:hover{text-decoration:underline;color:var(--text)}
+.workspace{min-width:0}
+.tabs{display:flex;gap:4px}.tabs button{border:1px solid transparent;border-radius:6px;background:none;color:var(--muted);padding:5px 10px;white-space:nowrap;font-size:14px}
+.tabs button:hover{color:var(--text);background:#29343f}.tabs button[aria-pressed=true]{background:#24443b;border-color:#376553;color:#91edcd}
+.summary{display:grid;grid-template-columns:minmax(290px,1fr) minmax(460px,1.08fr);align-items:center;gap:clamp(14px,3vw,46px);background:var(--panel);border-bottom:1px solid var(--line);padding:16px clamp(14px,2.2vw,34px)}
+.distribution{min-width:0}.distribution-line{display:flex;justify-content:space-between;gap:8px;align-items:center}.distribution-line strong{font-size:14px}.distribution-line span{font-size:13px;color:var(--muted)}
+.distribution .bar{margin:7px 0 4px;height:8px}.distribution .legend{gap:4px}
+.distribution .legend button{padding:3px 6px}.numbers{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:12px}.metric{padding-left:17px;border-left:1px solid var(--line);min-width:0}.metric:first-child{padding-left:0;border:0}.metric span{display:block;color:var(--muted);font-size:13px}.metric strong{font-size:28px;line-height:1.2;letter-spacing:-.03em;font-variant-numeric:tabular-nums}.metric small{color:var(--muted);font-size:13px;margin-left:6px;white-space:nowrap}.bar{display:flex;height:6px;gap:2px;border-radius:8px;overflow:hidden;margin-top:14px;background:#222a37}.bar i{display:block;background:var(--fill)}.s-M{--color:var(--M);--fill:var(--M-fill);--tile-ink:#081e15}.s-P{--color:var(--P);--fill:var(--P-fill);--tile-ink:#241900}.s-N{--color:var(--N);--fill:var(--N-fill);--tile-ink:#300c13}.s-u{--color:var(--u);--fill:var(--u-fill);--tile-ink:#e1e7ef}
+.board{background:var(--bg);overflow:hidden}.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--panel);padding:10px clamp(14px,2.2vw,34px);border-bottom:1px solid var(--line)}.legend,.filters{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.legend button{border:1px solid transparent;background:transparent;color:var(--muted);border-radius:6px;padding:5px 7px;white-space:nowrap;font-size:13px}.legend button:hover,.legend button[aria-pressed=true]{border-color:#414c61;background:#262e40;color:var(--text)}.legend b{color:var(--text);font-variant-numeric:tabular-nums;margin-left:4px}.dot{width:8px;height:8px;border-radius:2px;background:var(--fill);display:inline-block;margin-right:6px}
+select{appearance:none;color:var(--text);border:1px solid #3c475d;border-radius:7px;background:#202838;padding:6px 29px 6px 10px;font-size:14px;background-image:linear-gradient(45deg,transparent 50%,#a1aec2 50%),linear-gradient(135deg,#a1aec2 50%,transparent 50%);background-position:calc(100% - 13px) 52%,calc(100% - 9px) 52%;background-size:4px 4px;background-repeat:no-repeat}
+.scroll{overflow:auto;padding:0 clamp(12px,2.2vw,34px) 10px}.scroll:has(.bank-layout){padding:0}.matrix{--matrix-tile:24px;--matrix-pitch:28px;--year-width:78px;--progress-width:70px;width:calc(var(--year-width) + var(--progress-width) + var(--matrix-pitch) * var(--columns));margin-top:6px;border-spacing:0;table-layout:fixed;text-align:center;font-variant-numeric:tabular-nums}
+.matrix .year-column{width:var(--year-width)}.matrix .question-columns{width:var(--matrix-pitch)}.matrix .progress-column{width:var(--progress-width)}.matrix th,.matrix td{height:38px;padding:3px 2px}.matrix thead th{height:38px;color:var(--muted);font-size:12px;font-weight:500;border-bottom:1px solid var(--line)}.matrix tbody th,.matrix tbody td{border-bottom:1px solid #252d3b}.matrix tr:last-child>*{border-bottom:0}.matrix tbody tr:hover{background:#1c2433}.matrix th:first-child{text-align:left;position:sticky;left:0;z-index:1;background:var(--panel)}.matrix th:last-child,.matrix td:last-child{text-align:right}.year{background:none;border:0;font-weight:700;padding:3px 6px 3px 0;letter-spacing:.02em}.year:hover{color:var(--accent)}.year small{color:var(--muted);font-size:11px;font-weight:400;margin-left:4px}.cell{width:100%;height:28px;min-width:22px;display:grid;place-items:center;border:1px solid transparent;border-radius:4px;background:var(--fill);color:var(--tile-ink);padding:0;font-size:12px;line-height:1;transition:opacity .15s,border-color .15s,transform .15s}.cell:hover{border-color:#e7f0fa;transform:translateY(-1px)}.cell.dim{opacity:.22}.cell.dim:hover,.cell.dim:focus-visible{opacity:1}.progress{font-size:12px;color:var(--muted);white-space:nowrap}.progress b{color:var(--text)}.progress .bar{margin:3px 0 0 auto;width:55px;height:3px}
+.foot{color:var(--muted);font-size:13px;margin:0;padding:10px clamp(12px,2.2vw,34px) 20px;border-top:1px solid var(--line)}.foot a{color:inherit;text-underline-offset:3px}.foot a:hover{color:var(--accent)}.empty{padding:34px 17px;text-align:center;color:var(--muted)}.list{width:100%;border-collapse:collapse;text-align:left}.list th,.list td{padding:9px 15px;border-bottom:1px solid var(--line);font-size:14px}.list th{color:var(--muted);font-weight:500}.list td button{border:0;background:none;color:var(--accent);padding:2px 0}.list tbody tr:hover{background:#1c2433}.status{color:var(--color);white-space:nowrap}.list-note{margin:14px 0;color:var(--muted);font-size:13px}
+dialog{background:#1a2130;color:var(--text);border:1px solid #444f63;border-radius:14px;width:min(530px,calc(100% - 26px));max-height:85vh;padding:24px;box-shadow:0 22px 90px #0009}dialog::backdrop{background:#080a11b9}dialog h2{margin:0 34px 10px 0;font-size:23px}.close{position:absolute;right:14px;top:13px;background:#293347;border:1px solid #3a465b;border-radius:7px;font-size:20px;width:34px;height:34px;line-height:1}.detail{color:var(--muted);margin:11px 0}.links{display:flex;gap:19px;flex-wrap:wrap;margin-top:16px}.paper-questions{display:grid;grid-template-columns:repeat(auto-fill,minmax(49px,1fr));gap:6px;margin:14px 0}.paper-questions .cell{height:36px}
+.subject-calc{--subject-bg:#20364c;--subject-ink:#b6ddfa}.subject-linear{--subject-bg:#352b4f;--subject-ink:#e0cbff}
+.subject-filter{display:flex;gap:3px;padding:3px;border:1px solid #3c475d;border-radius:7px}
+.subject-filter button{padding:3px 9px;border:0;border-radius:4px;background:transparent;color:var(--muted);font-size:14px;white-space:nowrap}
+.subject-filter button[aria-pressed=true]{background:var(--subject-bg,#303a50);color:var(--subject-ink,var(--text))}
+.matrix thead .subject-heading{width:auto;position:static;text-align:center;padding:4px}.matrix thead .subject-heading span{display:block;padding:4px;border-radius:5px;background:var(--subject-bg);color:var(--subject-ink);font-size:14px;font-weight:650;white-space:nowrap}
+.matrix thead .type-heading{position:static;height:31px;text-align:center;color:var(--text);font-size:13px;font-weight:650;background:#202a37;border-bottom-color:#414e60}
+.matrix thead .type-heading.type-choice{background:#253443}.matrix thead .type-heading.type-fill{background:#27343b}.matrix thead .type-heading.type-essay{background:#343045}
+.matrix thead .subject-heading{height:30px;padding:2px 3px}.matrix thead .subject-heading span{padding:1px 3px;font-size:12px;border-radius:3px}
+.matrix tbody td.subject-start{box-shadow:inset 1px 0 var(--line)}
+.matrix .type-start{box-shadow:inset 2px 0 #536178}
+.subject-text{color:var(--subject-ink);white-space:nowrap}.paper-group h3{margin:13px 0 0;font-size:14px;color:var(--subject-ink)}
+[hidden]{display:none!important}
+.bank-controls{display:flex;align-items:center;gap:10px;flex:1 1 365px;flex-wrap:wrap}
+.bank-controls .tabs{padding:3px}.bank-controls .tabs button{padding:4px 8px}
+.bank-search{min-width:0;flex:1 1 220px;border:1px solid #3c475d;border-radius:7px;background:#202838;color:var(--text);padding:6px 10px;font-size:14px}
+.bank-search::placeholder{color:var(--muted)}.bank-search:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bank-layout{display:grid;grid-template-columns:215px minmax(0,1fr);gap:0}
+.bank-dir{padding:8px 10px 8px 12px;border-right:1px solid var(--line);background:#1b222c}.bank-dir h2,.bank-main h2{font-size:14px;margin:0 0 4px}
+.dir-subject{color:var(--subject-ink);font-size:12px;margin:5px 0 1px}
+.dir-chapter{display:flex;align-items:center;gap:4px;padding:0 1px}.dir-chapter button{flex:1;min-width:0;text-align:left;font-size:12px;line-height:1.2}.dir-chapter .bar{margin:3px 0 0;height:2px;gap:1px}
+.dir-chapter small{color:var(--muted);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dir-all,.dir-chapter button{background:none;border:1px solid transparent;border-radius:4px;padding:4px;color:var(--muted)}.dir-all{font-size:12px}
+.dir-all:hover,.dir-chapter button:hover,.dir-all[aria-pressed=true],.dir-chapter button[aria-pressed=true]{background:#252e40;color:var(--text);border-color:#36445b}
+.bank-main{min-width:0;padding:7px 9px 8px}
+.bank-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.bank-head small{color:var(--muted);white-space:nowrap}
+.map-viewport{max-width:1370px;width:100%;margin-inline:auto;max-height:calc(var(--map-height) + 2px);overflow:auto;border:1px solid #303946;background:var(--map-bg)}
+.map-viewport.map-small{max-width:640px;margin-inline:0}
+.map-stage{width:calc(var(--map-width) * var(--zoom,1));height:calc(var(--map-height) * var(--zoom,1))}
+.map-surface{position:relative;width:max-content;line-height:0;transform:scale(var(--zoom,1));transform-origin:top left}
+.map-surface canvas{display:block}
+.map-targets{position:absolute;inset:0}
+.map-target{position:absolute;background:transparent;border:0;padding:0;border-radius:2px}
+.map-title-hit{position:absolute;background:transparent;border:0;padding:0;border-radius:0}.map-title-hit:is(:hover,:focus-visible){outline:1px solid #aab7c6;outline-offset:-1px}
+.map-target:is(:hover,:focus-visible){outline:2px solid #eef5ff;outline-offset:-1px;z-index:1}
+.map-actions{display:flex;align-items:center;gap:4px;margin-bottom:3px}
+.map-actions button{border:1px solid var(--line);background:#212c37;border-radius:4px;padding:1px 6px;color:var(--muted);font-size:12px}
+.map-actions button:hover{color:var(--text)}
+.matrix-tools{display:flex;align-items:center;gap:8px;flex:1 1 360px;flex-wrap:wrap}
+.matrix-tools .legend{margin-left:auto}
+.matrix-scroll{min-width:0;overflow:auto;padding:5px 18px 12px}
+.matrix-scroll .matrix{margin-inline:auto}
+.matrix .lane-calc{background:#20334a40}.matrix .lane-linear{background:#3b2f5340}
+.matrix tbody td{border-bottom-color:var(--bg)}
+.matrix td .cell.dim{opacity:.19}
+.matrix .cell{width:var(--matrix-tile);height:var(--matrix-tile);min-width:0;margin:auto;border-color:#ffffff14}
+.matrix tbody :is(th,td){height:calc(var(--matrix-tile) + 5px);padding-block:2px}
+.bank-main .list th,.bank-main .list td{padding:8px 6px;line-height:1.35}
+@media(min-width:1051px){.top-inner{min-height:54px}.summary{padding-block:11px}.toolbar{padding-block:7px}.bank-controls .tabs{padding:1px}}
+@media(max-width:1050px){.summary{grid-template-columns:1fr;gap:12px}.numbers{border-top:1px solid var(--line);padding-top:10px}.bank-layout{grid-template-columns:192px minmax(0,1fr)}}
+@media(max-width:680px){
+  body{display:flex;flex-direction:column}
+  .rail{position:sticky;top:0;height:auto;z-index:3;display:flex;align-items:center;gap:10px;padding:5px 12px;border-right:0;border-bottom:1px solid var(--line)}
+  .mark{width:30px;height:30px;margin:0;font-size:20px;border-radius:7px}
+  .view-tabs{display:flex;flex-wrap:wrap;gap:3px}.view-tabs button{display:flex;gap:5px;align-items:center;padding:5px 7px}.nav-icon{font-size:15px}
+  .top-inner{min-height:45px}.breadcrumb{gap:6px;font-size:12px}.breadcrumb h1{font-size:16px}.source{font-size:11px}
+  .summary{padding:10px 12px}.numbers{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.metric:nth-child(3){padding-left:0;border:0}.metric strong{font-size:23px}
+  .toolbar{padding:8px 12px}.bank-controls{flex-basis:100%}.bank-layout{display:block}.bank-dir{border-right:0;border-bottom:1px solid var(--line);padding:9px 12px}.dir-chapters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px 8px}.dir-subject{grid-column:1/-1;margin:5px 0 0}
+  .matrix{--matrix-tile:22px;--matrix-pitch:27px}
+  .list th,.list td,.bank-main .list th,.bank-main .list td{padding:6px 4px;font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+__PRACTICE_CSS__
+</style>
+</head>
+<body>
+<aside class="rail"><div class="mark" aria-label="数学二">∑</div><nav class="view-tabs" aria-label="进度视图"><button type="button" data-view="matrix" aria-pressed="true"><span class="nav-icon" aria-hidden="true">▦</span>真题矩阵</button><button type="button" data-view="bank" aria-pressed="false"><span class="nav-icon" aria-hidden="true">▧</span>题海</button><button type="button" data-view="review" aria-pressed="false"><span class="nav-icon" aria-hidden="true">◷</span>待复习</button></nav></aside>
+<header class="top"><div class="top-inner"><div class="breadcrumb"><span>数学二</span><span aria-hidden="true">/</span><h1 id="view-title">真题矩阵</h1></div><div class="source"><span id="daguan-connect"></span></div></div></header>
+<main class="workspace">
+<section class="summary" aria-label="所选年份与科目的进度">
+  <div class="distribution"><div class="distribution-line"><strong>当前范围掌握分布</strong><span id="scope-count"></span></div><div class="bar" id="overall" aria-hidden="true"></div><div class="legend" id="legend" aria-label="按掌握状态筛选"></div></div>
+  <div class="numbers" id="numbers"></div>
+</section>
+<section class="board" aria-label="原卷练习标记">
+  <div class="toolbar">
+    <div class="filters"><select id="range" aria-label="选择年份范围"></select><div class="subject-filter" role="group" aria-label="按科目筛选"><button type="button" data-subject="all" aria-pressed="true">全部科目</button><button type="button" data-subject="calc" class="subject-calc" aria-pressed="false">高数</button><button type="button" data-subject="linear" class="subject-linear" aria-pressed="false">线代</button></div></div>
+    <div class="matrix-tools" id="matrix-tools"><input id="matrix-search" type="search" class="bank-search" aria-label="搜索真题" placeholder="按年份、题号或知识点查找"><div id="matrix-legend"></div></div>
+    <div class="bank-controls" id="bank-controls" hidden><div class="tabs" role="group" aria-label="题海视图"><button type="button" data-bank-mode="map" aria-pressed="true">知识点地图</button><button type="button" data-bank-mode="weak" aria-pressed="false">薄弱队列</button></div><input id="bank-search" type="search" class="bank-search" aria-label="搜索专题、题型或年份题号" placeholder="搜索专题、题型或题号，如 2024.16"></div>
+  </div>
+  <div class="scroll" id="results"></div>
+</section>
+<p class="foot"><a href="https://github.com/wangziyu1234/Mathematics-II-#readme" target="_blank" rel="noreferrer">原卷与分类来源</a></p>
+</main>
+<dialog id="detail" aria-labelledby="detail-title"><div id="detail-body"></div></dialog>
+<script id="snapshot" type="application/json">__RECORDS__</script>
+<script id="taxonomy" type="application/json">__TOPICS__</script>
+<script id="question-content" type="application/json">__CONTENT__</script>
+<script src="练习资源/reader.js"></script>
+<script src="练习资源/sync.js"></script>
+<script>
+'use strict';
+const labels = { M:'掌握', P:'不熟练', N:'不会', u:'未标记' };
+const statusKeys = Object.keys(labels);
+const subjects = {calc:'高数', linear:'线代'};
+const matrixTypes=[['choice','选择题'],['fill','填空题'],['essay','解答题']];
+const chapters = JSON.parse(document.querySelector('#taxonomy').textContent);
+const papers = JSON.parse(document.querySelector('#snapshot').textContent).map(raw => {
+  let offset = 0;
+  const questions = raw.groups.flatMap(([type, size], group) =>
+    Array.from({length:size}, (_, index) => {
+      const position = ++offset;
+      const section = ['一','二','三','四','五','六','七','八','九','十','十一','十二'];
+      let number = String(position);
+      if (raw.labels) number = raw.labels[index];
+      if (raw.sectioned) number = group < 2 ? section[group] + '（' + (index + 1) + '）' : section[index + 2];
+      const subject = raw.linear.includes(position) ? 'linear' : 'calc';
+      const topicId = raw.topics[position - 1];
+      const chapterId = topicId.split('.')[0];
+      const chapter = chapters[chapterId];
+      return {position, number, type, subject, chapterId, topicId, topic:chapter.topics[topicId], status:raw.states[position - 1].replace('.', 'u')};
+    })
+  );
+  if (offset !== raw.states.length || questions.filter(q=>q.status!=='u').length !== raw.marked) throw new Error('试卷数据校验失败');
+  return {...raw, questions};
+});
+const range = document.querySelector('#range');
+const subjectFilter = document.querySelector('.subject-filter');
+const results = document.querySelector('#results');
+const legend = document.querySelector('#legend');
+const summary = document.querySelector('.summary');
+const footer = document.querySelector('.foot');
+const matrixTools = document.querySelector('#matrix-tools');
+const matrixSearch = document.querySelector('#matrix-search');
+const dialog = document.querySelector('#detail');
+const body = document.querySelector('#detail-body');
+const bankControls = document.querySelector('#bank-controls');
+const bankSearch = document.querySelector('#bank-search');
+let view = 'matrix';
+let statusFilter = '';
+let subject = 'all';
+let bankMode = 'map';
+let chapterFilter = '';
+let detailOrigin;
+let bankQuestions=[];
+const periods = [['all','全部年份'],['2021-2026','2021–2026'],['2011-2020','2011–2020'],['2001-2010','2001–2010']];
+range.replaceChildren(...[...periods, ...papers.map(p=>[String(p.year),p.year+' 年'])].map(([value,text])=>new Option(text,value)));
+const totalStatuses = questions => Object.fromEntries(statusKeys.map(s=>[s,questions.filter(q=>q.status===s).length]));
+const percent = (part,total) => total ? (100*part/total).toFixed(1)+'%' : '0%';
+const segments = counts => statusKeys.filter(s=>counts[s]).map(s=>'<i class="s-'+s+'" style="flex:'+counts[s]+'"></i>').join('');
+const paperLink = year => 'https://github.com/wangziyu1234/Mathematics-II-/blob/main/'+encodeURIComponent(year+'年考研数学二试题.md');
+const statusText = status => '<span class="status s-'+status+'"><i class="dot" aria-hidden="true"></i>'+labels[status]+'</span>';
+const titleText = (paper,q) => paper.year+' 年 · '+(paper.sectioned || paper.partial ? '原卷 '+q.number : '第 '+q.number+' 题');
+function selectedPapers(){
+  if (range.value==='all') return papers;
+  const [lo,hi=lo]=range.value.split('-').map(Number);
+  return papers.filter(p=>p.year>=lo && p.year<=hi);
+}
+const matchesSubject = q => subject === 'all' || q.subject === subject;
+const isWeak = q => q.status === 'P' || q.status === 'N';
+function renderSummary(questions){
+  const counts = totalStatuses(questions);
+  const marked = questions.length - counts.u;
+  document.querySelector('#scope-count').textContent = questions.length + ' 题';
+  const metrics = [['标记进度',percent(marked,questions.length),marked+' / '+questions.length+' 题'],['已掌握',counts.M,'题'],['待复习',counts.P+counts.N,'题'],['未标记',counts.u,'题']];
+  document.querySelector('#numbers').innerHTML = metrics.map(([label,stat,unit])=>'<div class="metric"><span>'+label+'</span><strong>'+stat+'</strong><small>'+unit+'</small></div>').join('');
+  document.querySelector('#overall').innerHTML = segments(counts);
+  const showAllStatuses = view==='matrix' || (view==='bank' && bankMode==='map');
+  legend.innerHTML = statusKeys.filter(s=>showAllStatuses || ['P','N'].includes(s)).map(s=>
+    '<button type="button" class="s-'+s+'" data-status="'+s+'" aria-pressed="'+(statusFilter===s)+'"><i class="dot" aria-hidden="true"></i>'+labels[s]+' <b>'+counts[s]+'</b></button>'
+  ).join('');
+}
+function cell(p,q,compact,muted=false){
+  const text = compact ? '' : q.number;
+  const dim = muted || (compact && statusFilter && q.status!==statusFilter) ? ' dim' : '';
+  const label = titleText(p,q)+'，'+subjects[q.subject]+'，'+q.type+'，'+labels[q.status];
+  return '<button type="button" class="cell s-'+q.status+dim+'" data-q="'+p.year+'-'+q.position+'" aria-label="'+label+'" title="'+label+'">'+text+'</button>';
+}
+function renderMatrix(rows,entries){
+  const query=matrixSearch.value.trim();
+  const filtered=chapterFilter || query;
+  const matches=filtered?new Set(searchQuestions(entries.filter(({q})=>!chapterFilter || q.chapterId===chapterFilter),query).map(({q})=>q)):null;
+  const relevantSubjects=Object.keys(subjects).filter(key=>subject==='all' || key===subject);
+  const bands=matrixTypes.flatMap(([kind,type])=>{
+    const groups=relevantSubjects.flatMap(key=>{
+      const perYear=new Map(rows.map(p=>[p.year,p.questions.filter(q=>q.type===type && q.subject===key)]));
+      const width=Math.max(0,...Array.from(perYear.values(),items=>items.length));
+      return width?[{key,width,perYear}]:[];
+    });
+    return groups.length?[{kind,type,groups,width:groups.reduce((n,g)=>n+g.width,0)}]:[];
+  });
+  if (!bands.length) {
+    results.innerHTML = '<p class="empty">这个年份范围没有收录'+subjects[subject]+'题。</p>';
+    return;
+  }
+  const typeHeaders=bands.map(({kind,type,width},index)=>
+    '<th scope="colgroup" colspan="'+width+'" class="type-heading type-'+kind+(index?' type-start':'')+'">'+type+'</th>'
+  ).join('');
+  const subjectHeaders=bands.map(({groups},bandIndex)=>groups.map(({key,width},groupIndex)=>
+    '<th colspan="'+width+'" class="subject-heading subject-'+key+(bandIndex&&!groupIndex?' type-start':'')+'"><span>'+subjects[key]+'</span></th>'
+  ).join('')).join('');
+  const colgroups='<colgroup class="year-column"></colgroup>'+bands.map(({width})=>'<colgroup class="question-columns" span="'+width+'"></colgroup>').join('')+'<colgroup class="progress-column"></colgroup>';
+  const html=rows.map(p=>{
+    const questions=p.questions.filter(matchesSubject);
+    const counts=totalStatuses(questions);
+    const marked=questions.length-counts.u;
+    const cells=bands.map(({groups},bandIndex)=>groups.map(({key,width,perYear},groupIndex)=>{
+      const items=perYear.get(p.year);
+      return Array.from({length:width},(_,index)=>{
+        const q=items[index];
+        const edge=index===0?(groupIndex?' subject-start':bandIndex?' type-start':''):'';
+        return '<td class="lane-'+key+edge+'">'+(q?cell(p,q,true,matches&&!matches.has(q)):'')+'</td>';
+      }).join('');
+    }).join('')).join('');
+    const progress=questions.length?'<b>'+marked+'</b> / '+questions.length+'<div class="bar" aria-hidden="true">'+segments(counts)+'</div>':'—';
+    return '<tr><th scope="row"><button type="button" class="year" data-year="'+p.year+'">'+p.year+(p.partial?'<small>节选</small>':'')+'</button></th>'+cells+'<td class="progress">'+progress+'</td></tr>';
+  }).join('');
+  const columns=bands.reduce((count,group)=>count+group.width,0);
+  const head='<thead><tr><th rowspan="2" scope="col">年份</th>'+typeHeaders+'<th rowspan="2" scope="col">已标记</th></tr><tr>'+subjectHeaders+'</tr></thead>';
+  results.innerHTML='<div class="bank-layout matrix-layout">'+bankDirectory(entries)+'<div class="matrix-scroll"><table class="matrix" style="--columns:'+columns+'" aria-label="按年份、题型和科目排列的真题矩阵">'+colgroups+head+'<tbody>'+html+'</tbody></table></div></div>';
+}
+function reviewMarkup(items,showTopic=false){
+  items.sort((a,b)=>Number(a.q.status==='P')-Number(b.q.status==='P') || b.p.year-a.p.year || a.q.position-b.q.position);
+  return items.length ? '<p class="list-note">'+items.length+' 题 · 不会优先，同状态按年份从新到旧</p><table class="list"><thead><tr><th scope="col">年份</th><th scope="col">原卷题号</th><th scope="col">科目</th><th scope="col">'+(showTopic?'知识点':'题型')+'</th><th scope="col">掌握状态</th></tr></thead><tbody>'+items.map(({p,q})=>
+    '<tr><td>'+p.year+'</td><td><button type="button" data-q="'+p.year+'-'+q.position+'">'+q.number+'</button></td><td class="subject-text subject-'+q.subject+'">'+subjects[q.subject]+'</td><td>'+(showTopic?q.topic:q.type)+'</td><td>'+statusText(q.status)+'</td></tr>'
+  ).join('')+'</tbody></table>' : '<p class="empty">当前筛选下没有待复习题。</p>';
+}
+function searchQuestions(entries,query){
+  if (!query) return entries;
+  const exact = query.match(/^(\d{4})(?:[ .·－\-年]+(?:第\s*)?(\d{1,2})\s*题?|年)?$/);
+  if (exact) return entries.filter(({p,q})=>p.year===Number(exact[1]) && (!exact[2] || q.position===Number(exact[2])));
+  const terms = query.toLowerCase().split(/\s+/);
+  return entries.filter(({p,q})=>{
+    const text = [p.year, subjects[q.subject], q.type, q.topic, chapters[q.chapterId].name, q.number, p.year+'.'+q.position].join(' ').toLowerCase();
+    return terms.every(term=>text.includes(term));
+  });
+}
+function bankDirectory(entries){
+  const grouped = Object.entries(subjects).map(([key,name])=>{
+    const links = Object.entries(chapters).filter(([,chapter])=>chapter.subject===key).map(([id,chapter])=>{
+      const items=entries.filter(({q})=>q.chapterId===id);
+      if (!items.length) return '';
+      const counts=totalStatuses(items.map(({q})=>q));
+      const marked=items.length-counts.u;
+      return '<div class="dir-chapter"><button type="button" data-chapter="'+id+'" aria-pressed="'+(chapterFilter===id)+'">'+chapter.name+'<span class="bar" aria-hidden="true">'+segments(counts)+'</span></button><small aria-label="已标记 '+marked+' 题，共 '+items.length+' 题">'+marked+'/'+items.length+'</small></div>';
+    }).join('');
+    return links?'<h3 class="dir-subject subject-'+key+'">'+name+'</h3>'+links:'';
+  }).join('');
+  return '<aside class="bank-dir" aria-label="知识点目录"><h2>知识点目录</h2><button type="button" class="dir-all" data-chapter="" aria-pressed="'+!chapterFilter+'">全部专题</button><div class="dir-chapters">'+grouped+'</div></aside>';
+}
+function bankMap(count){
+  return '<div class="map-viewport'+(count<=80?' map-small':'')+'"><div class="map-stage"><div class="map-surface"><canvas aria-hidden="true"></canvas><div class="map-targets" role="group" aria-label="知识点地图中的题目"></div></div></div></div>';
+}
+const shortChapterNames={
+  1:['函数与极限','函数极限'],2:['一元微分','微分'],3:['导数应用','导数'],
+  4:['一元积分','积分'],5:['定积分应用','积分应用'],6:['多元微分','多元微分'],
+  8:['微分方程','微分方程'],9:['行列式与矩阵','矩阵运算'],
+  10:['向量、秩与方程组','向量与秩'],11:['特征值与相似','特征值'],12:['二次型','二次型']
+};
+const shortTopicNames={
+  '1.1':['函数性质与连续','函数连续'], '1.2':['极限与无穷小','极限比较'], '1.3':['数列极限与递推','数列极限'],
+  '2.1':['导数定义与可导','连续可导'], '2.2':['求导与变化率','求导'], '2.3':['高阶导数与泰勒','泰勒公式'],
+  '3.1':['单调、极值与凹凸','单调极值'], '3.2':['切线、渐近线','切线曲率'], '3.3':['最值与优化','最值'], '3.4':['零点与交点','零点'], '3.5':['中值定理','中值'], '3.6':['微分不等式','不等式'],
+  '4.1':['原函数与积分','不定积分'], '4.2':['定积分计算','定积分'], '4.3':['变上限积分','变限积分'], '4.4':['积分性质与估计','积分性质'], '4.5':['反常积分','反常积分'],
+  '5.1':['面积与旋转体积','面积体积'], '5.2':['弧长与曲面面积','弧长曲面'], '5.3':['积分的物理应用','物理应用'],
+  '6.1':['多元极限与连续','多元极限'], '6.2':['复合偏导与全微分','偏导全微分'], '6.3':['多元与条件极值','多元极值'],
+  '7.1':['分域与换序','积分换序'], '7.2':['极坐标与换元','极坐标'], '7.3':['对称与积分比较','积分对称'],
+  '8.1':['一阶方程','一阶方程'], '8.2':['高阶与降阶','高阶方程'], '8.3':['微分方程建模','方程建模'],
+  '9.1':['行列式与余子式','行列式'], '9.2':['矩阵方程与幂','矩阵方程'], '9.3':['逆矩阵与变换','逆与伴随'],
+  '10.1':['线性相关与表示','线性相关'], '10.2':['秩与等价','矩阵秩'], '10.3':['方程组与基础解系','基础解系'],
+  '11.1':['特征值与特征向量','特征值'], '11.2':['相似与对角化','相似对角化'], '11.3':['对称矩阵与正交化','正交化'],
+  '12.1':['二次型的标准形','标准形']
+};
+function makeMapTree(entries){
+  const itemsByTopic=Map.groupBy(entries,({q})=>q.topicId);
+  return Object.entries(subjects).flatMap(([subject,name])=>{
+    const sections=Object.entries(chapters).filter(([,chapter])=>chapter.subject===subject).flatMap(([chapterId,chapter])=>{
+      const topics=Object.entries(chapter.topics).flatMap(([id,name])=>{
+        const items=itemsByTopic.get(id);
+        return items ? [{module:'topic-'+id,name,shortNames:shortTopicNames[id],items,weight:items.length+7}] : [];
+      });
+      return topics.length?[{module:'chapter-'+chapterId,name:chapter.name,shortNames:shortChapterNames[chapterId],children:topics,weight:topics.reduce((n,t)=>n+t.weight,12)}]:[];
+    });
+    return sections.length?[{module:'subject-'+subject,name,children:sections,weight:sections.reduce((n,t)=>n+t.weight,20)}]:[];
+  });
+}
+function squareLayout(nodes,box){
+  const total=nodes.reduce((sum,node)=>sum+node.weight,0);
+  const scale=box.w*box.h/total;
+  const rest=nodes.map(node=>({node,area:node.weight*scale})).sort((a,b)=>b.area-a.area);
+  const output=[];
+  let {x,y,w,h}=box;
+  const worst=(row,side)=>{
+    const a=row.reduce((n,item)=>n+item.area,0);
+    return Math.max(side*side*row[0].area/(a*a),a*a/(side*side*row.at(-1).area));
+  };
+  while (rest.length){
+    const vertical=w>=h;
+    const side=Math.max(.01,vertical?h:w);
+    const row=[rest.shift()];
+    while (rest.length && worst([...row,rest[0]],side)<=worst(row,side)) row.push(rest.shift());
+    const extent=row.reduce((n,item)=>n+item.area,0)/side;
+    let offset=0;
+    for(const {node,area} of row){
+      const length=area/extent;
+      output.push({node,x:vertical?x:x+offset,y:vertical?y+offset:y,w:vertical?extent:length,h:vertical?length:extent});
+      offset+=length;
+    }
+    if(vertical){x+=extent;w-=extent;}
+    else{y+=extent;h-=extent;}
+  }
+  return output;
+}
+function mapGeometry(tree,width,height){
+  const panels=[];
+  const add=(nodes,area,level)=>{
+    for(const {node,x,y,w,h} of squareLayout(nodes,area)){
+      const box={x:x+1,y:y+1,w:Math.max(1,w-2),h:Math.max(1,h-2)};
+      const heading=[20,17,15][level];
+      panels.push({node,box,level,heading});
+      if(node.children) add(node.children,{x:box.x+3,y:box.y+heading,w:Math.max(1,box.w-6),h:Math.max(1,box.h-heading-3)},level+1);
+    }
+  };
+  add(tree,{x:0,y:0,w:width,h:height},0);
+  return panels;
+}
+const mapCss=getComputedStyle(document.documentElement);
+const mapBackground=mapCss.getPropertyValue('--map-bg').trim();
+const mapPanelThemes=[
+  {background:mapBackground,band:'#181e27',border:'#768497',text:'#f1f5f9'},
+  {background:'#161c24',band:'#1d2530',border:'#515e6f',text:'#d6dde8'},
+  {background:'#252d38',band:'#29313c',border:'#465264',text:'#cbd5e1'}
+];
+const mapStateFill=Object.fromEntries(statusKeys.map(key=>[key,mapCss.getPropertyValue('--'+key+'-fill').trim()]));
+const mapStateStroke={M:'#349f79',P:'#e2b543',N:'#eb7a7a',u:'#465264'};
+function mapCapacity(box,heading,size){
+  return {
+    columns:Math.max(0,Math.floor((box.w-7)/(size+1))),
+    rows:Math.max(0,Math.floor((box.h-heading-3)/(size+1)))
+  };
+}
+function fitMapLabel(context,node,width){
+  const candidates=[node.name,...(node.shortNames??[])];
+  const fit=candidates.find(text=>context.measureText(text).width<=width);
+  if(fit) return fit;
+  let label=candidates.at(-1);
+  while(label && context.measureText(label+'…').width>width) label=label.slice(0,-1);
+  return label?label+'…':'';
+}
+function fillTopicTiles(box,heading,count){
+  const area={x:box.x+3,y:box.y+heading,w:Math.max(1,box.w-6),h:Math.max(1,box.h-heading-3)};
+  if(count===1 && mapCount<=4){
+    const size=Math.min(28,area.w,area.h);
+    return [{x:area.x,y:area.y,w:size,h:size}];
+  }
+  const gap=Math.min(1.5,area.w/(2*count),area.h/(2*count));
+  let best;
+  for(let columns=1;columns<=count;columns++){
+    const rows=Math.ceil(count/columns);
+    const w=(area.w-gap*(columns-1))/columns;
+    const maxHeight=(area.h-gap*(rows-1))/rows;
+    const h=Math.min(maxHeight,Math.max(w,maxHeight*.94));
+    const unused=(columns*rows-count)/(columns*rows);
+    const score=Math.abs(Math.log(w/h))+.5*unused;
+    if(!best||score<best.score) best={columns,w,h,score};
+  }
+  const {columns,w,h}=best;
+  return Array.from({length:count},(_,index)=>({
+    x:area.x+(index%columns)*(w+gap),
+    y:area.y+Math.floor(index/columns)*(h+gap),
+    w,h
+  }));
+}
+function drawMap(host,width,height,panels){
+  const canvas=host.querySelector('canvas');
+  const ratio=Math.min(window.devicePixelRatio||1,2);
+  canvas.width=Math.round(width*ratio);
+  canvas.height=Math.round(height*ratio);
+  canvas.style.width=width+'px';
+  canvas.style.height=height+'px';
+  const context=canvas.getContext('2d');
+  context.scale(ratio,ratio);
+  context.fillStyle=mapBackground;
+  context.fillRect(0,0,width,height);
+  const hits=[];
+  for (const {node,box,level,heading} of panels){
+    const {x,y,w,h}=box;
+    const {background,band,border,text}=mapPanelThemes[level];
+    context.fillStyle=background;
+    context.fillRect(x,y,w,h);
+    context.fillStyle=band;
+    context.fillRect(x,y,w,Math.min(h,heading));
+    context.strokeStyle=border;
+    context.lineWidth=[1.8,1.2,1][level];
+    context.strokeRect(Math.round(x)+.5,Math.round(y)+.5,Math.max(0,Math.round(w)-1),Math.max(0,Math.round(h)-1));
+    context.lineWidth=1;
+    context.fillStyle=text;
+    context.font=(level===2?'600 10px':'650 12px')+' system-ui, sans-serif';
+    context.save();
+    context.beginPath();
+    context.rect(x+4,y+1,Math.max(0,w-8),heading-1);
+    context.clip();
+    const label=fitMapLabel(context,node,w-8);
+    if(label) context.fillText(label,x+4,y+(level===2?11:13));
+    context.restore();
+    hits.push('<button type="button" class="map-title-hit" data-module="'+node.module+'" aria-label="练习：'+node.name+'" title="'+node.name+'" style="left:'+x+'px;top:'+y+'px;width:'+w+'px;height:'+heading+'px"></button>');
+    if(!node.items) continue;
+    const cells=fillTopicTiles(box,heading,node.items.length);
+    node.items.forEach(({p,q},index)=>{
+      const {x:left,y:top,w:tileWidth,h:tileHeight}=cells[index];
+      context.beginPath();
+      context.roundRect(left+.5,top+.5,tileWidth-1,tileHeight-1,2);
+      context.fillStyle=mapStateFill[q.status];
+      context.strokeStyle=mapStateStroke[q.status];
+      context.fill();
+      context.stroke();
+      const title=titleText(p,q)+'，'+q.topic+'，'+labels[q.status];
+      hits.push('<button type="button" class="map-target" data-q="'+p.year+'-'+q.position+'" aria-label="'+title+'" title="'+title+'" style="left:'+left+'px;top:'+top+'px;width:'+tileWidth+'px;height:'+tileHeight+'px"></button>');
+    });
+  }
+  host.querySelector('.map-targets').innerHTML=hits.join('');
+}
+let mapTree=[];
+let mapCount=0;
+function fitMap(viewport){
+  const width=Math.max(440,Math.min(1368,Math.floor(viewport.clientWidth)));
+  const key=width+'x'+window.innerHeight;
+  if(!mapTree.length||viewport.dataset.layout===key) return;
+  viewport.dataset.layout=key;
+  const top=viewport.getBoundingClientRect().top+window.scrollY;
+  const remainingHeight=Math.floor(window.innerHeight-top-10);
+  const minimumHeight=width>=800?420:Math.max(620,Math.round(width*1.24));
+  let height=mapCount<=80?Math.max(135,Math.min(400,120+mapCount*3)):
+    Math.max(minimumHeight,remainingHeight);
+  let panels=mapGeometry(mapTree,width,height);
+  const hasRoom=()=>panels.filter(({node})=>node.items).every(({box,heading,node})=>{
+    const {columns,rows}=mapCapacity(box,heading,8);
+    return columns*rows>=node.items.length;
+  });
+  while(!hasRoom() && height<1350){
+    height+=70;
+    panels=mapGeometry(mapTree,width,height);
+  }
+  viewport.style.setProperty('--map-width',width+'px');
+  viewport.style.setProperty('--map-height',height+'px');
+  drawMap(viewport,width,height,panels);
+}
+const mapResize=new ResizeObserver(([entry])=>{if(entry)fitMap(entry.target)});
+window.addEventListener('resize',()=>{
+  const viewport=results.querySelector('.map-viewport');
+  if(viewport) fitMap(viewport);
+});
+function changeMapZoom(button){
+  const viewport=results.querySelector('.map-viewport');
+  if(!viewport) return;
+  const current=Number(viewport.dataset.zoom||1);
+  const action=Number(button.dataset.zoom);
+  const next=action?Math.min(2.5,Math.max(1,current+action*.25)):1;
+  const middleX=(viewport.scrollLeft+viewport.clientWidth/2)/current;
+  const middleY=(viewport.scrollTop+viewport.clientHeight/2)/current;
+  applyMapZoom(viewport,next);
+  viewport.scrollTo(action?middleX*next-viewport.clientWidth/2:0,action?middleY*next-viewport.clientHeight/2:0);
+}
+function applyMapZoom(viewport,zoom){
+  viewport.dataset.zoom=zoom;
+  viewport.style.setProperty('--zoom',zoom);
+  results.querySelector('[data-zoom="0"]').textContent=zoom===1?'全图':Math.round(zoom*100)+'% · 全图';
+}
+function renderBank(entries){
+  const scope=chapterFilter?entries.filter(({q})=>q.chapterId===chapterFilter):entries;
+  const matched=searchQuestions(scope,bankSearch.value.trim());
+  renderSummary(matched.map(({q})=>q));
+  const visible=matched.filter(({q})=>(bankMode==='map' || isWeak(q)) && (!statusFilter || statusFilter===q.status));
+  bankQuestions=visible;
+  const heading=chapterFilter?chapters[chapterFilter].name:(bankMode==='map'?'题海全图':'薄弱队列');
+  const controls=bankMode==='map' && visible.length?'<span class="map-actions"><button type="button" data-zoom="-1" aria-label="缩小地图">−</button><button type="button" data-zoom="0" aria-label="恢复全图">全图</button><button type="button" data-zoom="1" aria-label="放大地图">+</button></span>':'';
+  results.innerHTML='<div class="bank-layout">'+bankDirectory(entries)+'<section class="bank-main"><div class="bank-head"><h2>'+heading+'</h2><button class="start-practice" data-module="scope" '+(visible.length?'':'disabled')+'>练当前筛选（'+visible.length+'）</button>'+controls+'<small role="status">'+visible.length+' 题</small></div>'+
+    (bankMode==='map'?(visible.length?bankMap(visible.length):'<p class="empty">当前筛选下没有匹配的题目。</p>'):reviewMarkup(visible,true))+'</section></div>';
+  const viewport=results.querySelector('.map-viewport');
+  if(viewport){
+    mapTree=makeMapTree(visible);
+    mapCount=visible.length;
+    fitMap(viewport);
+    mapResize.observe(viewport);
+  }
+}
+const viewTitles={matrix:'真题矩阵',bank:'题海',review:'待复习'};
+function render(){
+  mapResize.disconnect();
+  document.querySelector('#view-title').textContent=viewTitles[view];
+  for(const [attr,value] of [['data-view',view],['data-subject',subject],['data-bank-mode',bankMode]]){
+    for(const option of document.querySelectorAll('button['+attr+']'))option.setAttribute('aria-pressed',String(option.getAttribute(attr)===value));
+  }
+  const rows=selectedPapers();
+  bankControls.hidden=view!=='bank';
+  summary.hidden=view==='matrix';
+  footer.hidden=view==='bank';
+  matrixTools.hidden=view!=='matrix';
+  (view==='matrix'?document.querySelector('#matrix-legend'):summary.querySelector('.distribution')).append(legend);
+  const entries=rows.flatMap(p=>p.questions.filter(matchesSubject).map(q=>({p,q})));
+  if (view==='bank') {
+    renderBank(entries);
+    return;
+  }
+  renderSummary(entries.map(({q})=>q));
+  if(view==='matrix')renderMatrix(rows,entries);
+  else results.innerHTML=reviewMarkup(entries.filter(({q})=>isWeak(q) && (!statusFilter || q.status===statusFilter)));
+}
+__PRACTICE_JS__
+document.querySelector('.view-tabs').addEventListener('click',event=>{
+  const tab=event.target.closest('[data-view]');
+  if(!tab || view===tab.dataset.view)return;
+  enterWorkspacePage();
+  view=tab.dataset.view;
+  statusFilter='';
+  render();
+});
+legend.addEventListener('click',event=>{
+  const button=event.target.closest('[data-status]');
+  if(!button)return;
+  statusFilter=statusFilter===button.dataset.status?'':button.dataset.status;
+  render();
+  legend.querySelector('[data-status="'+button.dataset.status+'"]')?.focus({preventScroll:true});
+});
+range.addEventListener('change',render);
+matrixSearch.addEventListener('input',render);
+bankSearch.addEventListener('input',render);
+bankControls.addEventListener('click',event=>{
+  const button=event.target.closest('[data-bank-mode]');
+  if (!button || bankMode===button.dataset.bankMode) return;
+  enterWorkspacePage();
+  bankMode=button.dataset.bankMode;
+  statusFilter='';
+  render();
+});
+subjectFilter.addEventListener('click',event=>{
+  const button=event.target.closest('[data-subject]');
+  if (!button || subject===button.dataset.subject) return;
+  subject=button.dataset.subject;
+  if (chapterFilter && subject!=='all' && chapters[chapterFilter].subject!==subject) chapterFilter='';
+  render();
+});
+results.addEventListener('click',event=>{
+  const module=event.target.closest('[data-module]');
+  if(module){openModule(module.dataset.module);return;}
+  const zoom=event.target.closest('[data-zoom]');
+  if(zoom) {
+    changeMapZoom(zoom);
+    return;
+  }
+  const button=event.target.closest('[data-chapter]');
+  if (button) {
+    if(view==='bank' && button.dataset.chapter){openChapter(button.dataset.chapter);return;}
+    chapterFilter=button.dataset.chapter;
+    render();
+    results.querySelector('[data-chapter="'+chapterFilter+'"]')?.focus({preventScroll:true});
+  } else handleDetail(event);
+});
+const resumeKey='math2.workspace.resume.v1';
+const routeCache=new Map();
+const navigationType=performance.getEntriesByType('navigation')[0]?.type;
+const existingRoute=navigationType==='navigate'?null:history.state?.math2Route;
+let activeRoute=existingRoute || {id:nextVersion(),hasParent:false};
+const scrollContainers=['#results','.matrix-scroll','.map-viewport'];
+function workspacePosition(){
+  const offsets={};
+  for(const selector of scrollContainers){
+    const el=document.querySelector(selector);
+    if(el)offsets[selector]=[el.scrollLeft,el.scrollTop];
+  }
+  return {x:window.scrollX,y:window.scrollY,offsets,zoom:Number(results.querySelector('.map-viewport')?.dataset.zoom||1)};
+}
+function restoreWorkspacePosition(position){
+  if(!position)return;
+  const viewport=results.querySelector('.map-viewport');
+  if(viewport && Number.isFinite(position.zoom))applyMapZoom(viewport,Math.max(1,Math.min(2.5,position.zoom)));
+  for(const selector of scrollContainers){
+    const pair=position.offsets?.[selector];
+    if(Array.isArray(pair) && pair.length===2 && pair.every(Number.isFinite))document.querySelector(selector)?.scrollTo(...pair);
+  }
+  if(Number.isFinite(position.x) && Number.isFinite(position.y))window.scrollTo(position.x,position.y);
+}
+function refreshWorkspaceData(){
+  const position=workspacePosition();
+  render();
+  restoreWorkspacePosition(position);
+}
+function captureWorkspace(){
+  return {view,subject,bankMode,chapterFilter,statusFilter,range:range.value,
+    matrixQuery:matrixSearch.value,bankQuery:bankSearch.value,position:workspacePosition(),practice:getPracticeResumeState()};
+}
+function saveWorkspace(snapshot=captureWorkspace()){
+  routeCache.set(activeRoute.id,snapshot);
+  try{sessionStorage.setItem(resumeKey+'.'+activeRoute.id,JSON.stringify(snapshot));}catch{}
+}
+function loadWorkspace(route){
+  if(routeCache.has(route.id))return routeCache.get(route.id);
+  try{return JSON.parse(sessionStorage.getItem(resumeKey+'.'+route.id));}catch{return null;}
+}
+function loadPreviousVersion(){
+  if(navigationType!=='reload')return null;
+  try{
+    const saved=JSON.parse(sessionStorage.getItem(resumeKey));
+    return saved?.url===location.href && Object.hasOwn(viewTitles,saved.view)?saved:null;
+  }catch{return null;}
+}
+function enterWorkspacePage(previous){
+  saveWorkspace(previous);
+  const next={id:nextVersion(),hasParent:true};
+  history.pushState({math2Route:next},'');
+  activeRoute=next;
+}
+function clearPaperLink(){
+  const url=new URL(location.href);
+  if(!url.searchParams.has('paper'))return;
+  url.searchParams.delete('paper');
+  try{history.replaceState(history.state,'',url);}
+  catch(error){
+    if(error.name!=='SecurityError')throw error;
+    location.replace(url);
+  }
+}
+function displayWorkspace(saved){
+  view=Object.hasOwn(viewTitles,saved?.view)?saved.view:'matrix';
+  subject=Object.hasOwn(subjects,saved?.subject)?saved.subject:'all';
+  bankMode=saved?.bankMode==='weak'?'weak':'map';
+  chapterFilter=Object.hasOwn(chapters,saved?.chapterFilter)?saved.chapterFilter:'';
+  statusFilter=statusKeys.includes(saved?.statusFilter)?saved.statusFilter:'';
+  range.value=Array.from(range.options).some(o=>o.value===saved?.range)?saved.range:'all';
+  matrixSearch.value=saved?.matrixQuery||'';
+  bankSearch.value=saved?.bankQuery||'';
+  render();
+  restoreWorkspacePosition(saved?.position);
+  if(saved?.practice && restorePracticeResumeState(saved.practice))return;
+  if(dialog.open)dialog.close();
+  if(!saved){
+    const year=new URLSearchParams(location.search).get('paper');
+    const paper=papers.find(p=>String(p.year)===year);
+    if(paper)showPractice(paper.questions.map(q=>entriesByKey.get(paper.year+'-'+q.position)),paper.year+' 年数二原卷','list');
+  }
+}
+const savedWorkspace=existingRoute?loadWorkspace(activeRoute):loadPreviousVersion();
+history.scrollRestoration='manual';
+history.replaceState({...history.state,math2Route:activeRoute},'');
+if(!existingRoute && savedWorkspace?.practice){
+  // Older tabs kept the parent questions inside the refresh snapshot.
+  const saved=savedWorkspace.practice;
+  if(!new URLSearchParams(location.search).has('paper'))enterWorkspacePage({...savedWorkspace,practice:null});
+  for(const parent of saved.history||[]){
+    enterWorkspacePage({...savedWorkspace,practice:{...saved,...parent,related:[parent.current],anchor:parent.current,offset:null}});
+  }
+}
+displayWorkspace(savedWorkspace);
+window.addEventListener('pagehide',()=>saveWorkspace());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveWorkspace();});
+window.addEventListener('popstate',event=>{
+  const next=event.state?.math2Route;
+  if(!next || next.id===activeRoute.id)return;
+  saveWorkspace();
+  activeRoute=next;
+  displayWorkspace(loadWorkspace(next));
+});
+</script>
+</body>
+</html>

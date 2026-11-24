@@ -1,0 +1,14 @@
+{
+  "name": "math2-desktop-build",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node smoke.cjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "playwright-core": "1.65.1"
+  }
+}

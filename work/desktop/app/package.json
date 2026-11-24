@@ -1,0 +1,8 @@
+{
+  "name": "math2-practice-desktop",
+  "productName": "数二真题练习",
+  "version": "1.0.0",
+  "description": "数学二真题练习与大观园进度同步",
+  "main": "main.cjs",
+  "license": "MIT"
+}
