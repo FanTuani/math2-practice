@@ -5,7 +5,9 @@
   let session = {connected: false, canWrite: false, connectionId: null};
   let available = false;
   let cooldown = 0;
-  let lastPoll = 0;
+  let refreshing = false;
+  let foregroundRefreshPending = false;
+  let foregroundTimer;
   let syncPanel;
   let globalError = '';
   let expiredId = null;
@@ -418,33 +420,55 @@
       await write(q,state);
     });
   });
-  async function refresh() {
-    if (document.hidden || !loopback || Date.now() - lastPoll < 5000 || Date.now() < cooldown) return;
-    lastPoll = Date.now();
+  async function poll(fresh) {
     await loadSession();
     if (!available || !session.connected) return;
     const focused = window.getOpenPracticeQuestion?.();
-    if (focused) enqueue(focused.key,()=>read(focused));
+    if (focused && !pendingOps.has(focused.key)) enqueue(focused.key,()=>read(focused));
     const connection = session.connectionId;
     const stamp = window.getPracticeVersions?.();
     const favoriteStamp = favoriteSequence;
     try {
-      const updates = await request('updates',{connectionId:connection});
+      const updates = await request('updates',{connectionId:connection,fresh});
       if (connection !== session.connectionId || updates.connectionId !== connection) return;
       for (const item of updates.items || []) {
         const q = current(item.key);
         if (!q || pendingOps.has(item.key) || q.key === focused?.key) continue;
         if ((favoriteChanges.get(item.key) || 0) > favoriteStamp) continue;
-        observations.set(item.key,{...item,connectionId:connection});
-        receiveFavorite(item.key,{...item,connectionId:connection});
-        if (q.pending || !wire(item.status)) continue;
         if (stamp && stamp[q.key] !== q.version) continue;
-        if (q.status !== item.status) reconcile(q,{...item,matched:true});
+        const state = {...item,connectionId:connection,matched:true};
+        if (q.pending || item.status !== q.status) reconcile(q,state);
+        else {
+          observations.set(q.key,state);
+          receiveFavorite(q.key,state);
+        }
       }
     } catch { /* Focused-question refresh remains independently available. */ }
   }
-  document.addEventListener('DOMContentLoaded', () => { renderConnect(); refresh(); });
-  document.addEventListener('visibilitychange',refresh);
-  window.addEventListener('focus',refresh);
-  setInterval(refresh,60000);
+  async function refresh(fresh) {
+    if (document.hidden || !loopback || Date.now() < cooldown) return;
+    if (refreshing) {
+      if (fresh) foregroundRefreshPending = true;
+      return;
+    }
+    refreshing = true;
+    try { await poll(fresh); }
+    finally {
+      refreshing = false;
+      if (foregroundRefreshPending) {
+        foregroundRefreshPending = false;
+        refresh(true);
+      }
+    }
+  }
+  function onForeground() {
+    if (document.hidden) return;
+    // A single return to the app can fire both visibilitychange and focus.
+    clearTimeout(foregroundTimer);
+    foregroundTimer = setTimeout(() => refresh(true), 120);
+  }
+  document.addEventListener('DOMContentLoaded', () => { renderConnect(); onForeground(); });
+  document.addEventListener('visibilitychange',onForeground);
+  window.addEventListener('focus',onForeground);
+  setInterval(() => refresh(false),15000);
 })();

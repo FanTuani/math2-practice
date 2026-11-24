@@ -111,6 +111,32 @@ def similar_stem(local, remote):
     return min(len(a), len(b)) >= 12 and (a == b or difflib.SequenceMatcher(None, a, b, autojunk=False).ratio() >= .94)
 
 
+def same_formulae(local, remote):
+    def formulae(stem):
+        prompt = re.split(r'(?:^|\n)\s*\([Aa]\)\s*', stem, maxsplit=1)[0]
+        values = re.findall(r'\$([^$]+)\$', prompt)
+        return sorted(re.sub(r'\s+|\\(?:left|right|displaystyle)(?![A-Za-z])', '', val) for val in values)
+    here, there = formulae(local), formulae(remote)
+    return len(set(here)) >= 2 and any(len(val) >= 4 for val in here) and here == there
+
+
+def numbered_sources(source):
+    """Only complete original-paper references qualify for first-time linking."""
+    aliases = {}
+    text = unicodedata.normalize('NFKC', source or '')
+    for part in re.split(r'[;,、。\n]', text):
+        alias = re.sub(r'\s+', '', part)
+        match = re.fullmatch(r'(\d{4})年?数(?:学)?二(?:第?([1-9]\d?)题|\(([1-9]\d?)\))', alias)
+        if match:
+            aliases[f'{match[1]}-{match[2] or match[3]}'] = alias
+    return aliases
+
+
+def hit_source(item):
+    return item.get('source') or '；'.join(m['text'] for m in item.get('search_matches', [])
+                                         if m.get('field') == 'source' and m.get('text'))
+
+
 def exact_exam_source(key, source):
     text = re.sub(r'\s+', '', unicodedata.normalize('NFKC', source))
     year, number = key.split('-')
@@ -169,6 +195,8 @@ class Bridge:
         self.serial = 0
         self.throttle_until = 0
         self.refresh_after_rejection = False
+        self.local_papers = None
+        self.examined_events = set()
         self.recent_events = []
         self.timeline_checked = 0
         self.observed_events = {}
@@ -401,20 +429,68 @@ class Bridge:
                 'connectionId': self.store.data['connectionId'], 'canWrite': self.store.data['canWrite']}
 
     def clear_timeline(self):
+        self.examined_events.clear()
         self.recent_events.clear()
         self.observed_events.clear()
         self.current_states.clear()
         self.timeline_checked = 0
 
-    def updates(self):
+    def local_catalog(self):
+        if self.local_papers is None:
+            html = (self.site_dir / PAGE_NAME).read_text(encoding='utf-8')
+            def embedded(name):
+                match = re.search(r'<script id="' + name + r'" type="application/json">(.*?)</script>', html, re.S)
+                return json.loads(match[1])
+            records, content = embedded('snapshot'), embedded('question-content')
+            self.local_papers = {}
+            for paper in records:
+                simple = not (paper.get('sectioned') or paper.get('partial') or paper.get('labels'))
+                for ordinal in range(1, sum(group[1] for group in paper['groups']) + 1):
+                    key = f"{paper['year']}-{ordinal}"
+                    self.local_papers[key] = (simple, content[key]['stem'])
+        return self.local_papers
+
+    def discover_exam_events(self, events, links):
+        # Only recent personal events in the official Math II paper list can introduce a link.
+        self.examined_events.intersection_update(row.get('id') for row in events)
+        known = set(links.values())
+        remaining = 2
+        for row in events:
+            qid, event_id = row.get('question_id'), row.get('id')
+            if not remaining or not qid or event_id is None or event_id in self.examined_events or qid in known:
+                continue
+            remaining -= 1
+            question = self.tool('question_get', {'question_id': qid})
+            sources = numbered_sources(question.get('source'))
+            local = self.local_catalog()
+            keys = sources.keys() & local.keys()
+            if question.get('id') == qid and len(keys) == 1:
+                key = next(iter(keys))
+                simple, stem = local[key]
+                remote_stem = question.get('stem') or ''
+                if key not in links and (similar_stem(stem, remote_stem) or simple and same_formulae(stem, remote_stem)):
+                    # A source label can also occur on duplicate bank entries. Keep ambiguous ones unlinked.
+                    result = self.tool('question_search', {'q': sources[key], 'per_page': 2})
+                    hits = result.get('items', [])
+                    if (result.get('total', len(hits)) == len(hits) == 1 and hits[0].get('id') == qid and
+                            key in numbered_sources(hit_source(hits[0]))):
+                        links[key] = qid
+                        self.store.save()
+                        known.add(qid)
+            self.examined_events.add(event_id)
+
+    def updates(self, fresh=False):
         self.ready()
-        links = self.store.data.get('links', {})
+        links = self.store.data.setdefault('links', {})
         response = {'connectionId': self.store.data['connectionId'], 'items': []}
-        if not links:
-            return response
-        if time.monotonic() - self.timeline_checked >= 12 or not self.timeline_checked:
-            timeline = self.tool('learning_practice_events_list', {'per_page': 40, 'time_order': 'desc'})
-            self.recent_events = timeline.get('items', [])
+        if time.monotonic() - self.timeline_checked >= (2 if fresh else 12) or not self.timeline_checked:
+            args = {'per_page': 40, 'time_order': 'desc'}
+            # The unfiltered feed also covers previously confirmed manual links outside this list.
+            timeline = self.tool('learning_practice_events_list', args).get('items', []) if links else []
+            scoped = self.tool('learning_practice_events_list', {**args, 'per_page': 5,
+                               'filter_list_id': 'exam-math-2'}).get('items', [])[:5]
+            self.discover_exam_events(scoped, links)
+            self.recent_events = timeline + scoped
             self.timeline_checked = time.monotonic()
         linked = set(links.values())
         latest = {}
@@ -469,13 +545,14 @@ class Bridge:
         candidates = []
         for item in items:
             qid = check_id(item['id'])
-            source = item.get('source') or '；'.join(m['text'] for m in item.get('search_matches', [])
-                                                        if m.get('field') == 'source' and m.get('text'))
+            source = hit_source(item)
             stem = item.get('stem') or ''
             candidates.append({'id': qid, 'source': str(source)[:240], 'stem': str(stem)[:750]})
-        if not manual and complete and len(candidates) == 1 and similar_stem(local, candidates[0]['stem']):
+        if not manual and complete and len(candidates) == 1:
             hit = candidates[0]
-            if exact_exam_source(key, hit['source']):
+            rewritten = (key in numbered_sources(hit['source']) and self.local_catalog().get(key, (False,))[0]
+                         and same_formulae(local, hit['stem']))
+            if exact_exam_source(key, hit['source']) and (rewritten or similar_stem(local, hit['stem'])):
                 links[key] = hit['id']
                 self.store.save()
                 return self.state(hit['id'])
@@ -622,7 +699,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif path == '/api/link':
                     result = self.bridge.link(data)
                 elif path == '/api/updates':
-                    result = self.bridge.updates()
+                    result = self.bridge.updates(fresh=data.get('fresh') is True)
                 elif path == '/api/mark':
                     result = self.bridge.mark(data)
                 elif path == '/api/favorite':
