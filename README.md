@@ -2,7 +2,7 @@
 
 按年份或知识点练习 2001–2026 年考研数学二真题，共 26 份原卷、586 题。点开矩阵中的一道题或题海中的一个专题，即可看原题、做选择题、展开解析，并逐题标记「掌握」「不熟练」「不会」。列表和单题模式都支持浏览器前进、后退和刷新恢复。
 
-## 在自己电脑上使用
+## 本地运行
 
 需要 Python 3.10 或以上版本。先下载本仓库源码并解压，或克隆仓库。在仓库根目录运行以下命令，首次构建需要联网下载固定版本的原卷、题图、解析和分类。构建器只使用 Python 标准库。
 
@@ -29,7 +29,7 @@ python3 outputs/daguan_server.py
 
 ## 打包 macOS 桌面版
 
-先按上面的步骤生成站点。桌面打包还需要Node.js 22.12 或以上版本、npm、Python 3.11 和 macOS 命令行开发工具。脚本默认调用 `python3.11`，可以用 `BRIDGE_PYTHON` 指定可创建虚拟环境的兼容 Python。首次打包会下载 Electron 和 PyInstaller。
+先按上面的步骤生成站点。桌面打包还需要 Node.js 22.12 或以上版本、npm、Python 3.11 和 macOS 命令行开发工具。脚本默认调用 `python3.11`，可以用 `BRIDGE_PYTHON` 指定可创建虚拟环境的兼容 Python。首次打包会下载 Electron 和 PyInstaller。
 
 ```sh
 npm --prefix work/desktop ci
@@ -39,17 +39,23 @@ open "outputs/数二真题练习.app"
 
 桌面构建面向 Apple Silicon Mac。构建脚本准备本机同步服务并将前端一起放入应用。应用与同一台 Mac 上的本机练习服务可共用大观园授权。其他操作系统可以直接使用浏览器版。
 
-## 大观园进度和 MCP
+## 大观园进度同步
 
-练习服务本身就是大观园 MCP 的客户端。连接时可选只读权限 `learning.read`，也可以授权 `learning.write`，把掌握状态和收藏写回自己的账号。网页通过本机服务走 OAuth 授权码和 PKCE 流程，每个人都用自己的浏览器登录。网页检查当前题和最近发生变化的已关联题目。题号匹配有歧义时，可在界面中选择对应题目；未连接时仍能在本地练习。远端状态冲突会显示在题卡上，让你决定采用哪一边。
+本机练习服务通过大观园 MCP 同步进度。连接时选择只读权限 `learning.read` 可读取掌握状态和收藏，加上 `learning.write` 可将本地修改同步到已授权的账号。登录在浏览器中完成，使用 OAuth 授权码和 PKCE 流程。
 
-如果想让自己的 AI 助手分析复习进度，可在支持远程 HTTP MCP 和 OAuth 的客户端添加 `https://cxyonly.fans/mcp`，完成该客户端自己的授权。题库构建从公开原卷资料读取，MCP 提供按需的个人学习数据。网页和 AI 客户端各自管理登录，无需从另一个客户端导出 token。
+网页会检查当前题目，以及最近有变动的已关联题目。匹配到多道候选题时，可在题卡上核对题干并选择。遇到进度冲突时，题卡会显示本地和远端状态，供选择保留哪一份。断网后仍可在本地练习。
 
-本机服务使用 `connection.json` 存放授权和题目关联。macOS 默认目录为 `~/Library/Application Support/数二真题练习/`，Windows 在当前用户的 LocalAppData 下，Linux 在当前用户的 XDG 状态目录下。可以用 `--state-dir` 指定其他目录。分享源码时只分享仓库地址，保留自己的授权文件和本地进度。
+授权信息和题目关联保存在本机的 `connection.json`。macOS 默认目录为 `~/Library/Application Support/数二真题练习/`，Windows 使用当前用户的 LocalAppData，Linux 使用当前用户的 XDG 状态目录。启动服务时可通过 `--state-dir` 指定其他目录。
 
-## 可以直接发给同学的提示词
+### 在 AI 助手中连接大观园
 
-> 请帮我在自己的电脑上安装 [数二真题练习](https://github.com/FanTuani/math2-practice)。先阅读 README，检查 Python 版本，从固定上游构建一份全部未标记的本地题库，并实际打开一个年份和一道有解析的题验证。默认使用浏览器版；如果我在 Apple Silicon Mac 上并要求桌面版，再构建 Electron 应用。需要同步时请打开本机站点，让我自己在大观园完成 OAuth。若我要你分析个人学习记录，请在你自己的客户端连接大观园 MCP 并提示我授权。不要索取账号密码或复制他人的授权文件。
+AI 助手可以独立连接大观园，按需查询已授权账号的学习记录。例如，可以按最近标记为「不会」的题目整理复习清单。
+
+1. 在支持远程 HTTP MCP 和 OAuth 的 AI 客户端中添加服务器，地址填入 `https://cxyonly.fans/mcp`。
+2. 在客户端发起连接，按浏览器提示登录大观园并授权。查询学习记录只需 `learning.read`。
+3. 回到客户端，让助手查询最近的练习记录，确认连接成功。
+
+## 重新构建公式渲染资源
 
 前端已经附带离线公式渲染资源。修改渲染器源码后，可用 `npm --prefix work/render-build ci` 和 `npm --prefix work/render-build run build` 重新生成。
 
