@@ -76,8 +76,28 @@
     window.dispatchEvent(new CustomEvent('practice:favorite-change', {detail:{key,value}}));
     paintFavorite(key);
   }
+  const markPrefix = 'math2.practice.mark.v1.';
+  const accountKey = 'math2.practice.last-connection';
+  const recordKey = (key,field) => (field === 'mastery' ? markPrefix : favoritePrefix) + key;
+  function stored(key,field) {
+    try { return JSON.parse(localStorage.getItem(recordKey(key,field))); } catch { return null; }
+  }
+  window.daguanEdit = (key,field,previous) => {
+    const account = session.connectionId || localStorage.getItem(accountKey);
+    const prior = stored(key,field);
+    const expected = prior?.pending && prior.sync?.account === account ? prior.sync.expected : previous;
+    return {account,expected};
+  };
+  function postpone(key,field,revision,blocked=false) {
+    const r = stored(key,field);
+    if (!r?.pending || (r.version || r.revision) !== revision || !r.sync) return;
+    r.sync.blocked = blocked;
+    r.sync.after = Date.now() + 30000;
+    localStorage.setItem(recordKey(key,field),JSON.stringify(r));
+  }
   function saveFavorite(key, value, pending) {
-    const record = {value, pending, revision:crypto.randomUUID()};
+    const sync = pending ? window.daguanEdit(key,'favorite',favoriteRecord(key).value) : undefined;
+    const record = {value, pending, revision:crypto.randomUUID(), sync};
     try { localStorage.setItem(favoritePrefix + key, JSON.stringify(record)); }
     catch { favoriteFeedback(key,'收藏保存失败，请检查浏览器存储空间'); return null; }
     notifyFavorite(key);
@@ -119,6 +139,12 @@
   function receiveFavorite(key, state) {
     if (typeof state.favorite !== 'boolean' || !currentConnection(state)) return;
     const local = favoriteRecord(key);
+    if (local.pending && local.sync?.account && local.sync.account !== session.connectionId) {
+      favoriteFeedback(key,'收藏修改来自另一条授权连接', canSaveFavorite(state) ? [
+        ['同步到当前账号',()=>enqueue(key,()=>sendFavorite(key,local,state,state.connectionId,true),favoriteError(key))]
+      ] : []);
+      return;
+    }
     if (local.pending && local.value !== state.favorite) {
       const account = session.connectionId;
       const isCurrent = () => favoriteRecord(key).revision === local.revision && session.connectionId === account;
@@ -158,8 +184,13 @@
       if (!result.matched || result.favorite !== local.value) throw new Error('大观园尚未确认收藏状态');
       finishAttempt(key,'favorite',local.revision,observed,local.value,attempt);
       observations.set(key,result);
-      if (favoriteRecord(key).revision === local.revision) receiveFavorite(key,result);
+      if (favoriteRecord(key).revision === local.revision) {
+        if (explicit && local.sync?.account && local.sync.account !== connectionId) {
+          if (saveFavorite(key,result.favorite,false)) favoriteFeedback(key,'收藏状态已同步');
+        } else receiveFavorite(key,result);
+      }
     } catch (err) {
+      postpone(key,'favorite',local.revision,err.status === 409);
       finishAttempt(key,'favorite',local.revision,observed,local.value,attempt,err);
       if (err.status === 409) { await read(current(key)); return; }
       throw err;
@@ -181,6 +212,7 @@
       if (!currentConnection(state) || account !== session.connectionId) return;
       if (!state.id) return candidates(q,state);
       if (typeof state.favorite !== 'boolean') throw new Error('当前连接未返回收藏状态');
+      if (state.favorite === local.value || state.favorite !== local.sync.expected) return receiveFavorite(key,state);
       await sendFavorite(key,local,state,account);
     }, favoriteError(key));
   }
@@ -242,6 +274,8 @@
         if (session.connectionId !== next.connectionId) { observations.clear(); presentations.clear(); favoriteMessages.clear(); }
         session = next.connectionId && next.connectionId === expiredId ? {...next,connected:false,canWrite:false} : next;
         available = true; globalError = '';
+        if (session.connected) localStorage.setItem(accountKey,session.connectionId);
+        else localStorage.removeItem(accountKey);
       } catch (error) { available = false; globalError = error.message; }
       finally { renderConnect(); sessionRequest = null; }
     })();
@@ -287,7 +321,9 @@
     }
     const close = button('关闭', () => syncPanel.close());
     const error = document.createElement('p'); error.className = 'dg-error'; error.textContent = globalError;
-    syncPanel.replaceChildren(title, text, ...(globalError ? [error] : []), actions, close);
+    const status = document.createElement('p'); status.dataset.feedStatus = '';
+    syncPanel.replaceChildren(title, text, status, ...(globalError ? [error] : []), actions, close);
+    displaySyncStatus();
   }
   const readArgs = q => ({key:q.key, number:String(q.number), stem:String(q.stem || '').replace(/!\[[^\]]*\]\(data:image\/[^)]+\)/g, '').slice(0,12000)});
   const wire = value => Object.hasOwn(labels, value);
@@ -365,7 +401,16 @@
     observations.set(q.key, state);
     const active = current(q.key);
     if (!active || active.version !== q.version) return;
-    if (active.pending) return resolveDifference(active, state);
+    if (active.pending) {
+      const owner = stored(q.key,'mastery')?.sync?.account;
+      if (owner && owner !== session.connectionId) {
+        show(q.key,'本机标记来自另一条授权连接，请核对后再选择', [
+          ['核对标记',()=>resolveDifference(active,state)]
+        ]);
+        return;
+      }
+      return resolveDifference(active,state);
+    }
     emit({key:q.key,status:state.status,version:q.version,message:'已同步'});
     show(q.key, '已同步 · 大观园 #' + state.id);
   }
@@ -392,6 +437,7 @@
       if (current(q.key)?.version === q.version) synced(q,result);
     } catch (err) {
       if (session.connectionId !== connectionId || current(q.key)?.version !== q.version) return;
+      postpone(q.key,'mastery',q.version,err.status === 409);
       finishAttempt(q.key,'mastery',q.version,observed,q.status,attempt,err);
       if (err.status === 409) { await read(q); return; }
       resolveDifference(q,observed);
@@ -420,9 +466,61 @@
       await write(q,state);
     });
   });
+  function pendingEdits() {
+    const result = [];
+    for (const name of Object.keys(localStorage)) {
+      const prefix = name.startsWith(markPrefix) ? markPrefix : name.startsWith(favoritePrefix) ? favoritePrefix : null;
+      if (!prefix) continue;
+      const field = prefix === markPrefix ? 'mastery' : 'favorite', key = name.slice(prefix.length);
+      const record = stored(key,field);
+      if (record?.pending) result.push({field,key,record});
+    }
+    return result;
+  }
+  async function drainEdits(account) {
+    if (!session.canWrite) return;
+    let budget = 3;
+    for (const {field,key,record} of pendingEdits()) {
+      const sync = record.sync, revision = record.version || record.revision;
+      if (budget <= 0 || account !== session.connectionId || Date.now() < cooldown) break;
+      if (!sync?.account || sync.account !== account || sync.blocked || sync.after > Date.now() || pendingOps.has(key)) continue;
+      const q = current(key);
+      if (!q) continue;
+      budget--;
+      await enqueue(key, async () => {
+        const state = await request('question',readArgs(q));
+        const latest = stored(key,field);
+        if (!latest?.pending || (latest.version || latest.revision) !== revision || account !== session.connectionId || !currentConnection(state)) return;
+        const remote = field === 'mastery' ? state.status : state.favorite;
+        const target = field === 'mastery' ? record.status : record.value;
+        if (!state.matched || remote !== sync.expected || remote === target || (field === 'favorite' && !canSaveFavorite(state))) {
+          postpone(key,field,revision,remote !== target);
+          reconcile(q,state);
+          return;
+        }
+        if (field === 'mastery') await write(q,state);
+        else await sendFavorite(key,record,state,account);
+      }, error => {
+        postpone(key,field,revision);
+        show(key,'已存本机 · ' + error.message);
+      });
+    }
+  }
+  let feedStatus = '', catchupTimer;
+  function displaySyncStatus() {
+    const box = syncPanel?.querySelector('[data-feed-status]');
+    if (!box) return;
+    const edits = pendingEdits();
+    const held = edits.filter(({record})=>!record.sync?.account || record.sync.account !== session.connectionId || record.sync.blocked);
+    box.textContent = [feedStatus, edits.length ? '本机待同步 ' + edits.length + ' 项' : '',
+      held.length ? '需在题卡核对：' + [...new Set(held.map(e=>e.key))].join('、') : ''].filter(Boolean).join(' · ');
+  }
   async function poll(fresh) {
     await loadSession();
     if (!available || !session.connected) return;
+    const account = session.connectionId;
+    await drainEdits(account);
+    if (account !== session.connectionId) return;
     const focused = window.getOpenPracticeQuestion?.();
     if (focused && !pendingOps.has(focused.key)) enqueue(focused.key,()=>read(focused));
     const connection = session.connectionId;
@@ -431,19 +529,26 @@
     try {
       const updates = await request('updates',{connectionId:connection,fresh});
       if (connection !== session.connectionId || updates.connectionId !== connection) return;
+      feedStatus = updates.more ? '正在补齐云端变更' : '已检查云端变更';
+      if (updates.unmatched?.length) feedStatus += ' · 待核对的大观园题号：' + updates.unmatched.map(id=>'#'+id).join('、');
+      clearTimeout(catchupTimer);
+      if (updates.more) catchupTimer = setTimeout(() => refresh(false), 3500);
       for (const item of updates.items || []) {
         const q = current(item.key);
         if (!q || pendingOps.has(item.key) || q.key === focused?.key) continue;
         if ((favoriteChanges.get(item.key) || 0) > favoriteStamp) continue;
         if (stamp && stamp[q.key] !== q.version) continue;
         const state = {...item,connectionId:connection,matched:true};
-        if (q.pending || item.status !== q.status) reconcile(q,state);
+        // Journal snapshots are for display. Only a fresh per-question read can confirm a pending write.
+        if (q.pending || favoriteRecord(q.key).pending) continue;
+        if (item.status !== q.status) reconcile(q,state);
         else {
           observations.set(q.key,state);
           receiveFavorite(q.key,state);
         }
       }
-    } catch { /* Focused-question refresh remains independently available. */ }
+    } catch (error) { feedStatus = '云端检查未完成 · ' + error.message; }
+    displaySyncStatus();
   }
   async function refresh(fresh) {
     if (document.hidden || !loopback || Date.now() < cooldown) return;
@@ -470,5 +575,6 @@
   document.addEventListener('DOMContentLoaded', () => { renderConnect(); onForeground(); });
   document.addEventListener('visibilitychange',onForeground);
   window.addEventListener('focus',onForeground);
+  window.addEventListener('online',onForeground);
   setInterval(() => refresh(false),15000);
 })();

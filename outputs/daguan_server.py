@@ -196,11 +196,7 @@ class Bridge:
         self.throttle_until = 0
         self.refresh_after_rejection = False
         self.local_papers = None
-        self.examined_events = set()
-        self.recent_events = []
         self.timeline_checked = 0
-        self.observed_events = {}
-        self.current_states = {}
         self.reset_transport()
 
     def reset_transport(self):
@@ -423,16 +419,16 @@ class Bridge:
         fields = {'status': FROM_MASTERY[remote['mastery']]}
         if type(remote.get('is_favorite')) is bool:
             fields['favorite'] = remote['is_favorite']
-        self.current_states[qid] = fields
+        values = self.journal()['values']
+        if values.get(str(qid)) != fields:
+            values[str(qid)] = fields
+            self.store.save()
         return {'matched': True, 'id': qid, **fields,
                 'canWriteFavorite': self.store.data['canWriteFavorite'],
                 'connectionId': self.store.data['connectionId'], 'canWrite': self.store.data['canWrite']}
 
     def clear_timeline(self):
-        self.examined_events.clear()
-        self.recent_events.clear()
-        self.observed_events.clear()
-        self.current_states.clear()
+        self.next_audit = 0
         self.timeline_checked = 0
 
     def local_catalog(self):
@@ -450,63 +446,113 @@ class Bridge:
                     self.local_papers[key] = (simple, content[key]['stem'])
         return self.local_papers
 
-    def discover_exam_events(self, events, links):
-        # Only recent personal events in the official Math II paper list can introduce a link.
-        self.examined_events.intersection_update(row.get('id') for row in events)
-        known = set(links.values())
-        remaining = 2
-        for row in events:
-            qid, event_id = row.get('question_id'), row.get('id')
-            if not remaining or not qid or event_id is None or event_id in self.examined_events or qid in known:
-                continue
-            remaining -= 1
-            question = self.tool('question_get', {'question_id': qid})
-            sources = numbered_sources(question.get('source'))
-            local = self.local_catalog()
-            keys = sources.keys() & local.keys()
-            if question.get('id') == qid and len(keys) == 1:
-                key = next(iter(keys))
-                simple, stem = local[key]
-                remote_stem = question.get('stem') or ''
-                if key not in links and (similar_stem(stem, remote_stem) or simple and same_formulae(stem, remote_stem)):
-                    # A source label can also occur on duplicate bank entries. Keep ambiguous ones unlinked.
-                    result = self.tool('question_search', {'q': sources[key], 'per_page': 2})
-                    hits = result.get('items', [])
-                    if (result.get('total', len(hits)) == len(hits) == 1 and hits[0].get('id') == qid and
-                            key in numbered_sources(hit_source(hits[0]))):
-                        links[key] = qid
-                        self.store.save()
-                        known.add(qid)
-            self.examined_events.add(event_id)
+    def discover_exam_question(self, qid, links):
+        question = self.tool('question_get', {'question_id': qid})
+        sources = numbered_sources(question.get('source'))
+        local = self.local_catalog()
+        keys = sources.keys() & local.keys()
+        if question.get('id') == qid and len(keys) == 1:
+            key = next(iter(keys))
+            simple, stem = local[key]
+            remote_stem = question.get('stem') or ''
+            if key not in links and (similar_stem(stem, remote_stem) or simple and same_formulae(stem, remote_stem)):
+                # A source label can also occur on duplicate bank entries. Keep ambiguous ones unlinked.
+                result = self.tool('question_search', {'q': sources[key], 'per_page': 2})
+                hits = result.get('items', [])
+                if (result.get('total', len(hits)) == len(hits) == 1 and hits[0].get('id') == qid and
+                        key in numbered_sources(hit_source(hits[0]))):
+                    links[key] = qid
+                    self.store.save()
+                    return key
+        return None
+
+    def journal(self):
+        data = self.store.data
+        if 'syncJournal' not in data or data['syncJournal']['connection'] != data['connectionId']:
+            data['syncJournal'] = {'connection': data['connectionId'], 'page': 1, 'prefix': [],
+                                   'queue': {}, 'values': {}, 'unmatched': {}}
+        return data['syncJournal']
+
+    def collect_page(self, journal):
+        # Ascending pages keep their positions as newer events arrive. Validate the
+        # consumed prefix so a changed upstream page is replayed rather than skipped.
+        args = {'filter_list_id': 'exam-math-2', 'time_order': 'asc', 'per_page': 40}
+        page = journal['page']
+        if page > 1 and not journal['prefix'] and journal.get('boundary'):
+            prior = self.tool('learning_practice_events_list', {**args, 'page': page - 1})['items']
+            if not prior or prior[-1]['id'] != journal['boundary']:
+                journal.update(page=1, prefix=[], more=True)
+                return
+        result = self.tool('learning_practice_events_list', {**args, 'page': page})
+        rows = result['items']
+        ids = [row['id'] for row in rows]
+        prefix = journal['prefix']
+        if ids[:len(prefix)] != prefix or (page > 1 and not rows and page > result.get('total_pages', page)):
+            journal.update(page=1, prefix=[], more=True)
+            return
+        for row in rows[len(prefix):]:
+            if row.get('question_id') is not None:
+                journal['queue'][str(check_id(row['question_id']))] = row['id']
+        more = page < result.get('total_pages', page)
+        if more and ids:
+            journal['boundary'] = ids[-1]
+        journal.update(page=page + 1 if more else page, prefix=[] if more else ids, more=more)
 
     def updates(self, fresh=False):
         self.ready()
         links = self.store.data.setdefault('links', {})
-        response = {'connectionId': self.store.data['connectionId'], 'items': []}
-        if time.monotonic() - self.timeline_checked >= (2 if fresh else 12) or not self.timeline_checked:
-            args = {'per_page': 40, 'time_order': 'desc'}
-            # The unfiltered feed also covers previously confirmed manual links outside this list.
-            timeline = self.tool('learning_practice_events_list', args).get('items', []) if links else []
-            scoped = self.tool('learning_practice_events_list', {**args, 'per_page': 5,
-                               'filter_list_id': 'exam-math-2'}).get('items', [])[:5]
-            self.discover_exam_events(scoped, links)
-            self.recent_events = timeline + scoped
-            self.timeline_checked = time.monotonic()
-        linked = set(links.values())
-        latest = {}
-        for row in self.recent_events:
-            qid = row.get('question_id')
-            if qid in linked and row.get('id') is not None:
-                latest.setdefault(qid, row['id'])
-        # An event is only a hint. Re-read the actual marked state and keep work per refresh bounded.
-        changed = [qid for qid, event_id in latest.items() if self.observed_events.get(qid) != event_id]
-        for qid in changed[:5]:
-            self.state(qid)
-            self.observed_events[qid] = latest[qid]
-        response['items'] = [{'key': key, 'id': qid, **self.current_states[qid]}
-                             for key, qid in links.items() if qid in latest and
-                             self.observed_events.get(qid) == latest[qid] and qid in self.current_states]
-        return response
+        journal = self.journal()
+        queue = journal['queue']
+        now = time.monotonic()
+        if not self.timeline_checked or now - self.timeline_checked >= (2 if fresh or queue or journal.get('more') else 12):
+            if len(queue) < 40 or not any(journal.get('retryAfter', {}).get(k,0) <= time.time() for k in queue):
+                self.collect_page(journal)
+                # The cursor and unprocessed IDs are committed in one atomic file.
+                self.store.save()
+            by_id = {str(qid): key for key, qid in links.items()}
+            retries = journal.setdefault('retryAfter', {})
+            due = (sid for sid in queue if retries.get(sid, 0) <= time.time())
+            for sid in list(due)[:4]:
+                qid = int(sid)
+                try:
+                    key = by_id.get(sid) or self.discover_exam_question(qid, links)
+                    if key:
+                        self.state(qid)
+                        journal['unmatched'].pop(sid, None)
+                    else:
+                        journal['unmatched'][sid] = queue[sid]
+                except Problem as exc:
+                    if exc.status in (401, 403, 429, 503) or exc.code == 'session_missing':
+                        raise
+                    # One unavailable question must not hold up all the others.
+                    retries[sid] = time.time() + 90
+                else:
+                    del queue[sid]
+                    retries.pop(sid, None)
+                self.store.save()
+            # Clears and changes to manually linked questions may have no event
+            # in the Math II list. Reconcile confirmed links in rotation as well.
+            if links and now >= getattr(self, 'next_audit', 0):
+                keys = sorted(links)
+                previous = journal.get('auditKey', '')
+                key = next((k for k in keys if k > previous), keys[0])
+                journal['auditKey'] = key
+                self.next_audit = now + 15
+                self.store.save()
+                try:
+                    self.state(links[key])
+                except Problem as exc:
+                    if exc.status in (401, 403, 429, 503) or exc.code == 'session_missing':
+                        raise
+                    journal['retryAfter'][str(links[key])] = time.time() + 90
+                    queue.setdefault(str(links[key]), None)
+                    self.store.save()
+            self.timeline_checked = now
+        values = journal['values']
+        items = [{'key': key, 'id': qid, **values[str(qid)]} for key, qid in links.items() if str(qid) in values]
+        return {'connectionId': journal['connection'], 'items': items, 'backlog': len(queue),
+                'more': bool(queue or journal.get('more')),
+                'unmatched': [int(sid) for sid in journal['unmatched'] if int(sid) not in links.values()]}
 
     def question(self, data):
         self.ready()
@@ -554,6 +600,7 @@ class Bridge:
                          and same_formulae(local, hit['stem']))
             if exact_exam_source(key, hit['source']) and (rewritten or similar_stem(local, hit['stem'])):
                 links[key] = hit['id']
+                self.timeline_checked = self.next_audit = 0
                 self.store.save()
                 return self.state(hit['id'])
         self.offers[key] = {c['id'] for c in candidates}

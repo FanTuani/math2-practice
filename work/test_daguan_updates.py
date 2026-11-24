@@ -61,15 +61,49 @@ class InboundUpdates(unittest.TestCase):
         self.question['source'] = '2039数二（1）'
         self.assertEqual(self.bridge.updates()['items'], [])
 
-    def test_only_recent_math_ii_events_are_examined_with_a_budget(self):
+    def test_all_personal_math_ii_events_are_examined_with_a_budget(self):
         self.scoped = [{'id': qid, 'question_id': qid} for qid in range(21, 13, -1)]
         self.bridge.store.data['links'] = {'2040-1': 17}
         for _ in range(4):
             self.bridge.timeline_checked = 0
             self.bridge.updates()
         calls = [p.args[1]['question_id'] for p in self.bridge.tool.call_args_list if p.args[0] == 'question_get']
-        self.assertEqual(calls, [21, 20, 19, 18])
+        self.assertEqual(calls, [21, 20, 19, 18, 16, 15, 14])
         self.assertNotIn(self.event['question_id'], calls)
+
+    def test_paged_offline_gap_and_restart(self):
+        events = [{'id': n, 'question_id': 100+n} for n in range(1, 96)]
+        catalog = {f'2040-{n}': (True, self.question['stem']) for n in range(1,96)}
+        self.bridge.local_papers = catalog
+        def cloud(name,args):
+            if name == 'learning_practice_events_list':
+                self.assertEqual(args['time_order'], 'asc')
+                start = (args['page']-1)*40
+                return {'items':events[start:start+40], 'total_pages':(len(events)+39)//40}
+            if name == 'question_get':
+                qid = args['question_id']
+                return {**self.question,'id':qid,'source':f'2040年数学二第{qid-100}题'}
+            if name == 'question_search':
+                source = args['q']
+                ordinal = int(source.split('第')[1].rstrip('题'))
+                return {'items':[{**self.question,'id':100+ordinal,'source':source}],'total':1}
+            return self.tool(name,args)
+        self.bridge.tool = cloud
+        self.assertTrue(self.bridge.updates()['more'])
+        old = self.bridge
+        self.bridge = server.Bridge(old.origin,old.store.path.parent,old.site_dir)
+        self.bridge.tools = {}
+        self.bridge.local_papers = catalog
+        self.bridge.tool = cloud
+        events.append({'id':96,'question_id':101})
+        for _ in range(40):
+            self.bridge.timeline_checked = 0
+            result = self.bridge.updates()
+            if not result['more']:
+                break
+        self.assertFalse(result['more'])
+        self.assertEqual({r['id'] for r in result['items']}, set(range(101,196)))
+        self.assertEqual(self.bridge.store.data['links'], {f'2040-{n}':100+n for n in range(1,96)})
 
     def test_foreign_source_and_different_formula_are_not_linked(self):
         for field, value in [('source', '模拟2040年数学二第1题'), ('stem', '改变坐标 $(56)$、$(-3,9)$ 和 $m$')]:

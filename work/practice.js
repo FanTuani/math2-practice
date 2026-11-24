@@ -38,7 +38,8 @@ function loadMark(entry){
 for(const entry of entriesByKey.values())loadMark(entry);
 function persistMark(entry,status,pending,version){
   try{
-    localStorage.setItem(markPrefix+entry.key,JSON.stringify({status,pending,version}));
+    const sync=pending ? window.daguanEdit?.(entry.key,'mastery',entry.q.status) : undefined;
+    localStorage.setItem(markPrefix+entry.key,JSON.stringify({status,pending,version,sync}));
   }catch{return false;}
   entry.q.status=status;entry.version=version;entry.pending=pending;
   dirtyOverview=true;
@@ -81,6 +82,7 @@ window.addEventListener('storage',event=>{
   for(const entry of affected){loadMark(entry);refreshHighlights(entry);}
   dirtyOverview=true;refreshOverview();
 });
+let overviewFrame;
 window.addEventListener('daguan:state',event=>{
   const {key,status,version,confirmed,adopt}=event.detail||{};
   const entry=entriesByKey.get(key);
@@ -88,7 +90,10 @@ window.addEventListener('daguan:state',event=>{
   loadMark(entry);
   if(version!==entry.version || (entry.pending && (!confirmed || (!adopt && status!==entry.q.status))))return;
   if(!entry.pending && status===entry.q.status)return;
-  if(persistMark(entry,status,false,nextVersion())){refreshHighlights(entry);refreshOverview();}
+  if(persistMark(entry,status,false,nextVersion())){
+    refreshHighlights(entry);
+    if(!dialog.open && !overviewFrame)overviewFrame=requestAnimationFrame(()=>{overviewFrame=0;refreshOverview();});
+  }
 });
 function activeEntries(){
   let entries=selectedPapers().flatMap(p=>p.questions.filter(matchesSubject).map(q=>({p,q})));
