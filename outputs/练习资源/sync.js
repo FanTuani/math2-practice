@@ -84,6 +84,35 @@
   function currentConnection(state) {
     return session.connected && (!state.connectionId || state.connectionId === session.connectionId);
   }
+  // Store the operation ID before sending: a timeout can hide a successful write.
+  function attemptKey(key, field) { return 'math2.practice.sync-attempt.v1.' + field + '.' + key; }
+  function matchingAttempt(key, field, revision, state, target) {
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem(attemptKey(key,field))); } catch {}
+    const expected = field === 'mastery' ? state.status : state.favorite;
+    return saved?.revision === revision && saved.connectionId === session.connectionId &&
+      saved.id === state.id && saved.expected === expected && saved.target === target ? saved : null;
+  }
+  function storeAttempt(key, field, record) {
+    try { localStorage.setItem(attemptKey(key,field),JSON.stringify(record)); } catch {}
+  }
+  function startAttempt(key, field, revision, state, target, explicit) {
+    const prior = matchingAttempt(key,field,revision,state,target);
+    if (prior) return prior;
+    const record = {revision,connectionId:session.connectionId,id:state.id,target,
+      expected:field === 'mastery' ? state.status : state.favorite,
+      operationId:explicit ? crypto.randomUUID() : revision};
+    storeAttempt(key,field,record);
+    return record;
+  }
+  function finishAttempt(key, field, revision, state, target, record, error) {
+    if (matchingAttempt(key,field,revision,state,target)?.operationId !== record.operationId) return;
+    if (error && error.status !== 409) {
+      storeAttempt(key,field,{...record,message:error.message});
+    } else {
+      try { localStorage.removeItem(attemptKey(key,field)); } catch {}
+    }
+  }
   function canSaveFavorite(state) { return session.canWrite && (state.canWriteFavorite ?? session.canWriteFavorite) !== false; }
   function receiveFavorite(key, state) {
     if (typeof state.favorite !== 'boolean' || !currentConnection(state)) return;
@@ -92,8 +121,9 @@
       const account = session.connectionId;
       const isCurrent = () => favoriteRecord(key).revision === local.revision && session.connectionId === account;
       const actions = [];
-      if (canSaveFavorite(state)) actions.push(['同步本机收藏', () => {
-        if (isCurrent()) enqueue(key, () => sendFavorite(key, local, state, account), favoriteError(key));
+      const attempt = matchingAttempt(key,'favorite',local.revision,state,local.value);
+      if (canSaveFavorite(state)) actions.push([attempt ? '重试同步收藏' : '同步本机收藏', () => {
+        if (isCurrent()) enqueue(key, () => sendFavorite(key, local, state, account, true), favoriteError(key));
       }]);
       actions.push(['使用大观园收藏', () => enqueue(key, async () => {
         if (!isCurrent()) return;
@@ -103,7 +133,7 @@
         if (typeof live.favorite !== 'boolean') return;
         if (saveFavorite(key,live.favorite,false)) favoriteFeedback(key,'收藏状态已同步');
       }, favoriteError(key))]);
-      favoriteFeedback(key, '大观园' + (state.favorite ? '已收藏' : '未收藏'), actions);
+      favoriteFeedback(key, attempt?.message ? '收藏已存本机 · ' + attempt.message : '大观园' + (state.favorite ? '已收藏' : '未收藏'), actions);
       return;
     }
     if (local.pending || local.value !== state.favorite) {
@@ -112,20 +142,23 @@
   }
   const favoriteError = key => err => favoriteFeedback(key, '收藏已存本机 · ' + err.message,
     [['检查同步', () => enqueue(key, () => read(current(key)), favoriteError(key))]]);
-  async function sendFavorite(key, local, observed, connectionId) {
+  async function sendFavorite(key, local, observed, connectionId, explicit = false) {
     if (favoriteRecord(key).revision !== local.revision || !session.connected || session.connectionId !== connectionId) return;
     if (!canSaveFavorite(observed)) {
       await read(current(key));
       return;
     }
     if (Date.now() < cooldown) throw new Error('大观园限流，请稍后再试');
+    const attempt = startAttempt(key,'favorite',local.revision,observed,local.value,explicit);
     try {
-      const result = await request('favorite', {key,id:observed.id,expected:observed.favorite,favorite:local.value,connectionId});
+      const result = await request('favorite', {key,id:observed.id,expected:observed.favorite,favorite:local.value,connectionId,operationId:attempt.operationId});
       if (!currentConnection(result) || connectionId !== session.connectionId) return;
       if (!result.matched || result.favorite !== local.value) throw new Error('大观园尚未确认收藏状态');
+      finishAttempt(key,'favorite',local.revision,observed,local.value,attempt);
       observations.set(key,result);
       if (favoriteRecord(key).revision === local.revision) receiveFavorite(key,result);
     } catch (err) {
+      finishAttempt(key,'favorite',local.revision,observed,local.value,attempt,err);
       if (err.status === 409) { await read(current(key)); return; }
       throw err;
     }
@@ -267,13 +300,16 @@
     if (!active?.pending || active.version !== q.version) return;
     if (q.status === state.status) { synced(q, state); return; }
     const actions = [];
-    if (session.canWrite) actions.push(['同步本机标记', () => {
-      if (current(q.key)?.version !== q.version) return;
-      enqueue(q.key, () => write(q, state));
+    const account = session.connectionId;
+    const attempt = matchingAttempt(q.key,'mastery',q.version,state,q.status);
+    if (session.canWrite) actions.push([attempt ? '重试同步' : '同步本机标记', () => {
+      if (account !== session.connectionId || current(q.key)?.version !== q.version) return;
+      enqueue(q.key, () => write(q, state, true));
     }]);
     actions.push(['使用大观园标记', () => enqueue(q.key, async () => {
-      if (current(q.key)?.version !== q.version) return;
+      if (account !== session.connectionId || current(q.key)?.version !== q.version) return;
       const live = await request('question', readArgs(q));
+      if (account !== session.connectionId || !currentConnection(live) || current(q.key)?.version !== q.version) return;
       if (!live.matched) return candidates(q, live);
       if (live.status !== state.status) return resolveDifference(q, live);
       // Explicit choice is required to replace a locally pending mark.
@@ -281,7 +317,7 @@
       observations.set(q.key, live);
       show(q.key, '已同步 · 大观园 #' + live.id);
     })]);
-    show(q.key, '已存本机 · 大观园为「' + labels[state.status] + '」', actions);
+    show(q.key, attempt?.message ? '已存本机 · ' + attempt.message : '已存本机 · 大观园为「' + labels[state.status] + '」', actions);
   }
   function candidates(q, result) {
     const action = () => candidatePicker(q, result);
@@ -337,19 +373,26 @@
     const state = await request('question', readArgs(q));
     if (session.connectionId === connection && (!state.connectionId || state.connectionId === connection)) reconcile(q,state);
   }
-  async function write(q, observed) {
+  async function write(q, observed, explicit = false) {
     if (!available || !session.canWrite || !session.connected || current(q.key)?.version !== q.version) return;
-    if (Date.now() < cooldown) return show(q.key, '已存本机 · 大观园限流，稍后可重试');
+    if (!currentConnection(observed)) return;
+    if (Date.now() < cooldown) return show(q.key, '已存本机 · 大观园限流，稍后可重试',
+      [['重试同步',()=>enqueue(q.key,()=>write(q,observed,explicit))]]);
     const connectionId = session.connectionId;
+    const attempt = startAttempt(q.key,'mastery',q.version,observed,q.status,explicit);
+    show(q.key,'正在同步到大观园…');
     try {
-      const result = await request('mark',{key:q.key,id:observed.id,expected:observed.status,status:q.status,connectionId});
+      const result = await request('mark',{key:q.key,id:observed.id,expected:observed.status,status:q.status,connectionId,operationId:attempt.operationId});
       if (connectionId !== session.connectionId || (result.connectionId && result.connectionId !== connectionId)) return;
       if (!result.matched || result.status !== q.status) throw new Error('大观园尚未确认该标记');
+      finishAttempt(q.key,'mastery',q.version,observed,q.status,attempt);
       observations.set(q.key,result);
       if (current(q.key)?.version === q.version) synced(q,result);
     } catch (err) {
+      if (session.connectionId !== connectionId || current(q.key)?.version !== q.version) return;
+      finishAttempt(q.key,'mastery',q.version,observed,q.status,attempt,err);
       if (err.status === 409) { await read(q); return; }
-      show(q.key, '已存本机 · ' + err.message, [['检查同步',()=>enqueue(q.key,()=>read(current(q.key)))]]);
+      resolveDifference(q,observed);
     }
   }
   window.addEventListener('daguan:open', event => {

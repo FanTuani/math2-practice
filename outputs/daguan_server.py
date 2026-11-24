@@ -524,12 +524,22 @@ class Bridge:
         current = self.state(qid)
         if local_field not in current:
             raise Problem(502, 'favorite', '大观园未返回此题的收藏状态。')
+        if current[local_field] == new:
+            return current
         if current[local_field] != old:
             raise Problem(409, 'conflict', '大观园中的标记已变化，请重新核对。')
-        if old == new:
-            return current
         args = {'question_id': qid, field: new_value, 'expected_' + field: old_value}
         schema = self.tools[WRITE_STATE]
+        if 'operation_id' in schema.get('properties', {}):
+            intent = data.get('operationId')
+            if intent is None:
+                # Older clients do not send an edit ID. Each explicit submission is a new intent.
+                intent = secrets.token_hex(16)
+            if not isinstance(intent, str) or not re.fullmatch(r'[A-Za-z0-9:_-]{1,128}', intent):
+                raise bad('无效的同步操作标识。')
+            # Scope the retry key to the account and exact compare-and-set request.
+            context = [data['connectionId'], qid, field, old_value, new_value, intent]
+            args['operation_id'] = hashlib.sha256(json.dumps(context).encode()).hexdigest()
         if 'field' in schema.get('required', []):
             args['field'] = field
         if field == 'mastery' and new == 'u' and 'enum' in schema.get('properties', {}).get('mastery', {}):
