@@ -18,7 +18,10 @@ function readRecord(key){
 }
 function recordColor(value,points){
   if(value in recordColors)return recordColors[value];
-  const scale=Math.min(1,Number(value)/points*2)*2;
+  return recordGradient(Number(value)/points*2);
+}
+function recordGradient(fraction){
+  const scale=Math.max(0,Math.min(1,fraction))*2;
   const stops=[[85,179,147],[226,188,89],[223,102,107]];
   const index=Math.min(1,Math.floor(scale));
   return 'rgb('+stops[index].map((v,i)=>Math.round(v+(stops[index+1][i]-v)*(scale-index))).join(',')+')';
@@ -34,9 +37,23 @@ function recordCell(p,q){
   const label=titleText(p,q)+'，'+points+' 分，'+(pending?'旧颜色记录，待确认分数':manual?recordNames[value]+'标记':hasScore?'扣 '+value+' 分':'未记录');
   return '<button type="button" class="cell rec-cell" data-record="'+key+'" '+(fill?'style="--record-fill:'+fill+'" data-filled':'')+' title="'+label+'" aria-label="'+label+'">'+mark+'</button>';
 }
-function recordProgress(p,questions){
-  const n=questions.filter(q=>readRecord(p.year+'-'+q.position)!==null).length;
-  return '<b>'+n+'</b> / '+questions.length;
+function recordTotal(paper){
+  if(paper.partial)return '<span title="仅收录节选，无法计算整卷总分">—</span>';
+  let score=0, scored=0;
+  for(const q of paper.questions){
+    const key=paper.year+'-'+q.position;
+    const points=practiceText[key].points;
+    const value=readRecord(key);
+    score+=points;
+    if(value!==null && /^\d+$/.test(value) && Number(value)<=points){
+      score-=Number(value);
+      scored++;
+    }
+  }
+  if(!scored)return '<span title="尚未录入分数">—</span>';
+  const pending=paper.questions.length-scored;
+  const label=pending?'暂估 '+score+' 分，'+pending+' 道未定分题暂按满分计':'整卷总分 '+score+' 分';
+  return '<span class="record-total" style="--score-color:'+recordGradient((130-score)/30)+'" title="'+label+'" aria-label="'+label+'">'+(pending?'<small>暂估</small>':'')+'<strong>'+score+'</strong></span>';
 }
 function dismissRecord(){
   if(recordEditor.matches(':popover-open'))recordEditor.hidePopover();

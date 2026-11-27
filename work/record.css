@@ -11,3 +11,7 @@
 #record-editor footer{border-top:1px solid #495564;margin-top:14px;padding-top:10px;gap:8px}.record-dot{width:21px;height:21px;background:var(--swatch);border:3px solid #202b38;border-radius:50%}.rec-clear{margin-left:auto;font-size:12px}
 
 .rec-presets.rec-binary{grid-template-columns:repeat(2,1fr)}
+
+.record-total{display:inline-flex;align-items:baseline;gap:4px}
+.record-total strong{color:var(--score-color);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.record-total small{color:var(--muted);font-size:10px}

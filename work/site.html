@@ -242,11 +242,11 @@ function renderMatrix(rows,entries){
         return '<td class="lane-'+key+edge+'">'+(q?(recording?recordCell(p,q):cell(p,q,true,matches&&!matches.has(q))):'')+'</td>';
       }).join('');
     }).join('')).join('');
-    const progress=recording?recordProgress(p,questions):questions.length?'<b>'+marked+'</b> / '+questions.length+'<div class="bar" aria-hidden="true">'+segments(counts)+'</div>':'—';
+    const progress=recording?recordTotal(p):questions.length?'<b>'+marked+'</b> / '+questions.length+'<div class="bar" aria-hidden="true">'+segments(counts)+'</div>':'—';
     return '<tr><th scope="row"><button type="button" class="year" data-year="'+p.year+'">'+p.year+(p.partial?'<small>节选</small>':'')+'</button></th>'+cells+'<td class="progress">'+progress+'</td></tr>';
   }).join('');
   const columns=bands.reduce((count,group)=>count+group.width,0);
-  const head='<thead><tr><th rowspan="2" scope="col">年份</th>'+typeHeaders+'<th rowspan="2" scope="col">'+(recording?'已记录':'已标记')+'</th></tr><tr>'+subjectHeaders+'</tr></thead>';
+  const head='<thead><tr><th rowspan="2" scope="col">年份</th>'+typeHeaders+'<th rowspan="2" scope="col">'+(recording?'总分':'已标记')+'</th></tr><tr>'+subjectHeaders+'</tr></thead>';
   if(recording){
     results.innerHTML='<div class="record-shell"><div class="record-caption"><strong>扣分分布</strong><span class="record-scale"><i></i>未记录 <b></b> 0 → 50% 及以上</span></div><div class="matrix-scroll"><table class="matrix record-matrix" style="--columns:'+columns+'" aria-label="逐题扣分记录">'+colgroups+head+'<tbody>'+html+'</tbody></table></div></div>';
     return;
