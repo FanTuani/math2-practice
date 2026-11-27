@@ -80,7 +80,8 @@ async function createWindow() {
   if (quitting) return;
   const win = new BrowserWindow({
     title, width:1360, height:890, minWidth:640, minHeight:440, show:false,
-    backgroundColor:'#151a21',
+    ...(process.platform==='darwin' ? {titleBarStyle:'hidden', trafficLightPosition:{x:16,y:17}} : {}),
+    backgroundColor:'#19212a',
     webPreferences:{sandbox:true, contextIsolation:true, nodeIntegration:false, webviewTag:false}
   });
   window = win;

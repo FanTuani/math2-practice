@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>数二真题进度</title>
+<script>
+if(navigator.userAgent.includes('Electron/') && navigator.platform.startsWith('Mac'))document.documentElement.classList.add('mac-window');
+</script>
 <link rel="stylesheet" href="练习资源/practice-math.css">
 <style>
 :root{color-scheme:dark;--bg:#151a21;--panel:#1b212b;--line:#303946;--muted:#aeb9c8;--text:#edf2f7;--accent:#68dfb4;--M:#55cf9b;--P:#e8bc4f;--N:#f08489;--u:#b7c0cd;--map-bg:#11151b;--M-fill:#22a06b;--P-fill:#d9a514;--N-fill:#df6262;--u-fill:#3d4654}
@@ -99,6 +102,19 @@ dialog{background:#1a2130;color:var(--text);border:1px solid #444f63;border-radi
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 __PRACTICE_CSS__
 __RECORD_CSS__
+.mac-window .top{grid-column:1/-1;grid-row:1;position:sticky;top:0;z-index:5;background:#19212a}
+.mac-window .top-inner,.mac-window .pr-top{min-height:48px;height:48px;padding-left:94px;-webkit-app-region:drag}
+.mac-window :is(.top-inner,.pr-top) :is(button,a,input,select,.source){-webkit-app-region:no-drag}
+.mac-window .top-inner{padding-right:20px}
+.mac-window .breadcrumb{gap:10px;font-size:13px}
+.mac-window .breadcrumb h1{font-size:16px}
+.mac-window .rail{grid-column:1;grid-row:2;top:48px;height:calc(100vh - 48px)}
+.mac-window .rail .mark{display:none}
+.mac-window .pr-top{background:#19212a;border-bottom-color:var(--line)}
+@media(max-width:680px){
+  .mac-window .top{order:-1}
+  .mac-window .rail{height:auto}
+}
 </style>
 </head>
 <body>
