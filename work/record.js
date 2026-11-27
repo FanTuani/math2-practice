@@ -6,8 +6,15 @@ const recordEditor=document.querySelector('#record-editor');
 const recordNotice=document.querySelector('#record-notice');
 const recordBrush=document.querySelector('#record-brush');
 let recordKey='';
+function isObjective(key){
+  return ['选择题','填空题'].includes(entriesByKey.get(key).q.type);
+}
 function readRecord(key){
-  try{return localStorage.getItem(recordPrefix+key);}catch{return null;}
+  try{
+    const stored=localStorage.getItem(recordPrefix+key);
+    if(isObjective(key) && Number(stored)>0)return String(practiceText[key].points);
+    return stored;
+  }catch{return null;}
 }
 function recordColor(value,points){
   if(value in recordColors)return recordColors[value];
@@ -21,9 +28,10 @@ function recordCell(p,q){
   const value=readRecord(key);
   const hasScore=value!==null && /^\d+$/.test(value) && Number(value)<=points;
   const manual=Object.hasOwn(recordNames,value);
-  const fill=hasScore || manual?recordColor(value,points):'';
-  const mark=manual?({green:'●',yellow:'▲',red:'◆'})[value]:hasScore?(value==='0'?'✓':'−'+value):q.position;
-  const label=titleText(p,q)+'，'+points+' 分，'+(manual?recordNames[value]+'标记':hasScore?'扣 '+value+' 分':'未记录');
+  const pending=manual && isObjective(key);
+  const fill=!pending && (hasScore || manual)?recordColor(value,points):'';
+  const mark=pending?'?':manual?({green:'●',yellow:'▲',red:'◆'})[value]:hasScore?(value==='0'?'✓':'−'+value):q.position;
+  const label=titleText(p,q)+'，'+points+' 分，'+(pending?'旧颜色记录，待确认分数':manual?recordNames[value]+'标记':hasScore?'扣 '+value+' 分':'未记录');
   return '<button type="button" class="cell rec-cell" data-record="'+key+'" '+(fill?'style="--record-fill:'+fill+'" data-filled':'')+' title="'+label+'" aria-label="'+label+'">'+mark+'</button>';
 }
 function recordProgress(p,questions){
@@ -37,6 +45,10 @@ function saveRecord(key,value){
   const points=practiceText[key].points;
   if(value==='full')value=String(points);
   if(value==='clear')value=null;
+  if(isObjective(key) && value!==null && value!=='0' && value!==String(points)){
+    recordNotice.textContent='本题只可记满分或扣 '+points+' 分';
+    return false;
+  }
   if(value!==null && !Object.hasOwn(recordColors,value) && (!/^\d+$/.test(value)||Number(value)>points)){
     recordNotice.textContent='本题满分 '+points+' 分，请重新选择扣分';
     return false;
@@ -72,12 +84,14 @@ function undoRecord(){
 }
 function activateRecord(button){
   const key=button.dataset.record;
-  if(recordBrush.value!=='edit'){saveRecord(key,recordBrush.value);return;}
+  if(recordBrush.value!=='edit' && saveRecord(key,recordBrush.value))return;
   recordKey=key;
   const entry=entriesByKey.get(key),points=practiceText[key].points,value=readRecord(key);
-  const choices=Array.from({length:points+1},(_,i)=>'<button data-loss="'+i+'" aria-pressed="'+(String(i)===value)+'" style="--swatch:'+recordColor(String(i),points)+'">'+(i?'−'+i:'满分')+'</button>').join('');
-  const colors=Object.entries(recordNames).map(([name,label])=>'<button class="record-dot" data-loss="'+name+'" style="--swatch:'+recordColors[name]+'" title="'+label+'" aria-label="仅标'+label+'" aria-pressed="'+(value===name)+'"></button>').join('');
-  recordEditor.innerHTML='<header><strong id="record-heading">'+practiceQuestionTitle(entry)+'</strong><span>满分 '+points+' 分</span></header><div class="rec-topic">'+entry.q.topic+'</div><div class="rec-presets">'+choices+'</div><footer>仅标颜色 '+colors+'<button class="rec-clear" data-loss="clear">清除记录</button></footer>';
+  const objective=isObjective(key);
+  const losses=objective?[0,points]:Array.from({length:points+1},(_,i)=>i);
+  const choices=losses.map(i=>'<button data-loss="'+i+'" aria-pressed="'+(String(i)===value)+'" style="--swatch:'+recordColor(String(i),points)+'">'+(i?'−'+i:'满分')+'</button>').join('');
+  const colors=objective?'':'仅标颜色 '+Object.entries(recordNames).map(([name,label])=>'<button class="record-dot" data-loss="'+name+'" style="--swatch:'+recordColors[name]+'" title="'+label+'" aria-label="仅标'+label+'" aria-pressed="'+(value===name)+'"></button>').join('');
+  recordEditor.innerHTML='<header><strong id="record-heading">'+practiceQuestionTitle(entry)+'</strong><span>满分 '+points+' 分</span></header><div class="rec-topic">'+entry.q.topic+'</div><div class="rec-presets'+(objective?' rec-binary':'')+'">'+choices+'</div><footer>'+colors+'<button class="rec-clear" data-loss="clear">清除记录</button></footer>';
   recordEditor.showPopover();
   const rect=button.getBoundingClientRect(), box=recordEditor.getBoundingClientRect();
   recordEditor.style.left=Math.max(8,Math.min(innerWidth-box.width-8,rect.left+(rect.width-box.width)/2))+'px';

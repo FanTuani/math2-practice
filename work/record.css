@@ -9,3 +9,5 @@
 #record-editor header{justify-content:space-between}.rec-topic{margin:4px 0 14px}.rec-presets{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.rec-presets button{padding:8px 1px;color:var(--text);border:1px solid #4a5766;border-bottom:3px solid var(--swatch);background:#303d4c;border-radius:5px;font-size:13px;font-weight:650}
 #record-editor button:hover,#record-editor button[aria-pressed=true]{outline:2px solid var(--swatch,#bdc9d6);outline-offset:1px}
 #record-editor footer{border-top:1px solid #495564;margin-top:14px;padding-top:10px;gap:8px}.record-dot{width:21px;height:21px;background:var(--swatch);border:3px solid #202b38;border-radius:50%}.rec-clear{margin-left:auto;font-size:12px}
+
+.rec-presets.rec-binary{grid-template-columns:repeat(2,1fr)}
