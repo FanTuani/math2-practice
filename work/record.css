@@ -1,0 +1,11 @@
+.record-tools,.record-tools label,.record-caption,.record-scale,#record-editor header,#record-editor footer{display:flex;align-items:center;gap:10px}
+.record-tools{flex-wrap:wrap}.record-tools label,.record-tools [role=status],.record-scale,#record-editor header span,.rec-topic,#record-editor footer{color:var(--muted);font-size:12px}
+.record-tools button,.rec-clear{border:0;background:none;color:var(--text);padding:6px}.record-tools button:disabled{opacity:.35}
+.scroll:has(.record-shell){padding:0}.record-shell{width:max-content;max-width:100%;margin:auto;padding:12px 0}
+.record-caption{justify-content:space-between;padding:4px 18px 10px;font-size:14px}.record-scale{gap:6px}.record-scale i{width:10px;height:10px;border-radius:2px;background:#394451}.record-scale b{width:56px;height:6px;border-radius:4px;margin-left:6px;background:linear-gradient(90deg,#55b393,#e2bc59,#df666b)}
+.record-matrix{--matrix-tile:clamp(25px,2vw,35px);--matrix-pitch:calc(var(--matrix-tile) + 5px)}
+.record-matrix .rec-cell{background:var(--record-fill,#293441);color:#acb9c7;font-size:11px;font-variant-numeric:tabular-nums}.record-matrix .rec-cell[data-filled]{color:#16212a;font-weight:750}.rec-cell:focus-visible{outline:2px solid white;outline-offset:1px}
+#record-editor{position:fixed;inset:auto;margin:0;width:min(294px,calc(100vw - 16px));padding:16px;background:#202b38;color:var(--text);border:1px solid #556576;border-radius:10px;box-shadow:0 12px 34px #0007}
+#record-editor header{justify-content:space-between}.rec-topic{margin:4px 0 14px}.rec-presets{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}.rec-presets button{padding:8px 1px;color:var(--text);border:1px solid #4a5766;border-bottom:3px solid var(--swatch);background:#303d4c;border-radius:5px;font-size:13px;font-weight:650}
+#record-editor button:hover,#record-editor button[aria-pressed=true]{outline:2px solid var(--swatch,#bdc9d6);outline-offset:1px}
+#record-editor footer{border-top:1px solid #495564;margin-top:14px;padding-top:10px;gap:8px}.record-dot{width:21px;height:21px;background:var(--swatch);border:3px solid #202b38;border-radius:50%}.rec-clear{margin-left:auto;font-size:12px}

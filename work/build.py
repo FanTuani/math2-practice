@@ -78,7 +78,7 @@ def build(source):
     if len(contents) != 586:
         raise ValueError(f"2001–2026 年应有 586 题，读到 {len(contents)} 题")
     page = (WORK / "site.html").read_text(encoding="utf-8")
-    for slot, file in (("PRACTICE_JS", "practice.js"), ("PRACTICE_CSS", "practice.css")):
+    for slot, file in (("RECORD_JS", "record.js"), ("RECORD_CSS", "record.css"), ("PRACTICE_JS", "practice.js"), ("PRACTICE_CSS", "practice.css")):
         page = page.replace(f"__{slot}__", (WORK / file).read_text(encoding="utf-8"))
     for slot, data in (("RECORDS", papers), ("TOPICS", chapters), ("CONTENT", contents)):
         value = json.dumps(data, separators=(",", ":"), ensure_ascii=False).replace("<", "\\u003c")

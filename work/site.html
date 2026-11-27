@@ -98,10 +98,11 @@ dialog{background:#1a2130;color:var(--text);border:1px solid #444f63;border-radi
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 __PRACTICE_CSS__
+__RECORD_CSS__
 </style>
 </head>
 <body>
-<aside class="rail"><div class="mark" aria-label="数学二">∑</div><nav class="view-tabs" aria-label="进度视图"><button type="button" data-view="matrix" aria-pressed="true"><span class="nav-icon" aria-hidden="true">▦</span>真题矩阵</button><button type="button" data-view="bank" aria-pressed="false"><span class="nav-icon" aria-hidden="true">▧</span>题海</button><button type="button" data-view="review" aria-pressed="false"><span class="nav-icon" aria-hidden="true">◷</span>待复习</button></nav></aside>
+<aside class="rail"><div class="mark" aria-label="数学二">∑</div><nav class="view-tabs" aria-label="进度视图"><button type="button" data-view="matrix" aria-pressed="true"><span class="nav-icon" aria-hidden="true">▦</span>真题矩阵</button><button type="button" data-view="records" aria-pressed="false"><span class="nav-icon" aria-hidden="true">▤</span>真题记录</button><button type="button" data-view="bank" aria-pressed="false"><span class="nav-icon" aria-hidden="true">▧</span>题海</button><button type="button" data-view="review" aria-pressed="false"><span class="nav-icon" aria-hidden="true">◷</span>待复习</button></nav></aside>
 <header class="top"><div class="top-inner"><div class="breadcrumb"><span>数学二</span><span aria-hidden="true">/</span><h1 id="view-title">真题矩阵</h1></div><div class="source"><span id="daguan-connect"></span></div></div></header>
 <main class="workspace">
 <section class="summary" aria-label="所选年份与科目的进度">
@@ -112,12 +113,14 @@ __PRACTICE_CSS__
   <div class="toolbar">
     <div class="filters"><select id="range" aria-label="选择年份范围"></select><div class="subject-filter" role="group" aria-label="按科目筛选"><button type="button" data-subject="all" aria-pressed="true">全部科目</button><button type="button" data-subject="calc" class="subject-calc" aria-pressed="false">高数</button><button type="button" data-subject="linear" class="subject-linear" aria-pressed="false">线代</button></div></div>
     <div class="matrix-tools" id="matrix-tools"><input id="matrix-search" type="search" class="bank-search" aria-label="搜索真题" placeholder="按年份、题号或知识点查找"><div id="matrix-legend"></div></div>
+    <div class="record-tools" id="record-tools" hidden><label>录入方式 <select id="record-brush"><option value="edit">逐题编辑</option><optgroup label="连续点选题格"><option value="0">连标 · 满分</option><option value="1">连标 · −1 分</option><option value="3">连标 · −3 分</option><option value="5">连标 · −5 分</option><option value="full">连标 · 全扣</option><option value="clear">连标 · 清除</option></optgroup></select></label><button id="record-undo" disabled>撤销</button><span id="record-notice" role="status"></span></div>
     <div class="bank-controls" id="bank-controls" hidden><div class="tabs" role="group" aria-label="题海视图"><button type="button" data-bank-mode="map" aria-pressed="true">知识点地图</button><button type="button" data-bank-mode="weak" aria-pressed="false">薄弱队列</button></div><input id="bank-search" type="search" class="bank-search" aria-label="搜索专题、题型或年份题号" placeholder="搜索专题、题型或题号，如 2024.16"></div>
   </div>
   <div class="scroll" id="results"></div>
 </section>
 <p class="foot"><a href="https://github.com/wangziyu1234/Mathematics-II-#readme" target="_blank" rel="noreferrer">原卷与分类来源</a></p>
 </main>
+<section id="record-editor" popover="auto" role="dialog" aria-labelledby="record-heading"></section>
 <dialog id="detail" aria-labelledby="detail-title"><div id="detail-body"></div></dialog>
 <script id="snapshot" type="application/json">__RECORDS__</script>
 <script id="taxonomy" type="application/json">__TOPICS__</script>
@@ -203,8 +206,9 @@ function cell(p,q,compact,muted=false){
   return '<button type="button" class="cell s-'+q.status+dim+'" data-q="'+p.year+'-'+q.position+'" aria-label="'+label+'" title="'+label+'">'+text+'</button>';
 }
 function renderMatrix(rows,entries){
-  const query=matrixSearch.value.trim();
-  const filtered=chapterFilter || query;
+  const recording=view==='records';
+  const query=recording?'':matrixSearch.value.trim();
+  const filtered=!recording && (chapterFilter || query);
   const matches=filtered?new Set(searchQuestions(entries.filter(({q})=>!chapterFilter || q.chapterId===chapterFilter),query).map(({q})=>q)):null;
   const relevantSubjects=Object.keys(subjects).filter(key=>subject==='all' || key===subject);
   const bands=matrixTypes.flatMap(([kind,type])=>{
@@ -235,14 +239,18 @@ function renderMatrix(rows,entries){
       return Array.from({length:width},(_,index)=>{
         const q=items[index];
         const edge=index===0?(groupIndex?' subject-start':bandIndex?' type-start':''):'';
-        return '<td class="lane-'+key+edge+'">'+(q?cell(p,q,true,matches&&!matches.has(q)):'')+'</td>';
+        return '<td class="lane-'+key+edge+'">'+(q?(recording?recordCell(p,q):cell(p,q,true,matches&&!matches.has(q))):'')+'</td>';
       }).join('');
     }).join('')).join('');
-    const progress=questions.length?'<b>'+marked+'</b> / '+questions.length+'<div class="bar" aria-hidden="true">'+segments(counts)+'</div>':'—';
+    const progress=recording?recordProgress(p,questions):questions.length?'<b>'+marked+'</b> / '+questions.length+'<div class="bar" aria-hidden="true">'+segments(counts)+'</div>':'—';
     return '<tr><th scope="row"><button type="button" class="year" data-year="'+p.year+'">'+p.year+(p.partial?'<small>节选</small>':'')+'</button></th>'+cells+'<td class="progress">'+progress+'</td></tr>';
   }).join('');
   const columns=bands.reduce((count,group)=>count+group.width,0);
-  const head='<thead><tr><th rowspan="2" scope="col">年份</th>'+typeHeaders+'<th rowspan="2" scope="col">已标记</th></tr><tr>'+subjectHeaders+'</tr></thead>';
+  const head='<thead><tr><th rowspan="2" scope="col">年份</th>'+typeHeaders+'<th rowspan="2" scope="col">'+(recording?'已记录':'已标记')+'</th></tr><tr>'+subjectHeaders+'</tr></thead>';
+  if(recording){
+    results.innerHTML='<div class="record-shell"><div class="record-caption"><strong>扣分分布</strong><span class="record-scale"><i></i>未记录 <b></b> 0 → 50% 及以上</span></div><div class="matrix-scroll"><table class="matrix record-matrix" style="--columns:'+columns+'" aria-label="逐题扣分记录">'+colgroups+head+'<tbody>'+html+'</tbody></table></div></div>';
+    return;
+  }
   results.innerHTML='<div class="bank-layout matrix-layout">'+bankDirectory(entries)+'<div class="matrix-scroll"><table class="matrix" style="--columns:'+columns+'" aria-label="按年份、题型和科目排列的真题矩阵">'+colgroups+head+'<tbody>'+html+'</tbody></table></div></div>';
 }
 function reviewMarkup(items,showTopic=false){
@@ -510,7 +518,7 @@ function renderBank(entries){
     mapResize.observe(viewport);
   }
 }
-const viewTitles={matrix:'真题矩阵',bank:'题海',review:'待复习'};
+const viewTitles={matrix:'真题矩阵',records:'真题记录',bank:'题海',review:'待复习'};
 function render(){
   mapResize.disconnect();
   document.querySelector('#view-title').textContent=viewTitles[view];
@@ -519,8 +527,9 @@ function render(){
   }
   const rows=selectedPapers();
   bankControls.hidden=view!=='bank';
-  summary.hidden=view==='matrix';
-  footer.hidden=view==='bank';
+  summary.hidden=view==='matrix' || view==='records';
+  document.querySelector('#record-tools').hidden=view!=='records';
+  footer.hidden=view==='bank' || view==='records';
   matrixTools.hidden=view!=='matrix';
   (view==='matrix'?document.querySelector('#matrix-legend'):summary.querySelector('.distribution')).append(legend);
   const entries=rows.flatMap(p=>p.questions.filter(matchesSubject).map(q=>({p,q})));
@@ -529,10 +538,11 @@ function render(){
     return;
   }
   renderSummary(entries.map(({q})=>q));
-  if(view==='matrix')renderMatrix(rows,entries);
+  if(view==='matrix' || view==='records')renderMatrix(rows,entries);
   else results.innerHTML=reviewMarkup(entries.filter(({q})=>isWeak(q) && (!statusFilter || q.status===statusFilter)));
 }
 __PRACTICE_JS__
+__RECORD_JS__
 document.querySelector('.view-tabs').addEventListener('click',event=>{
   const tab=event.target.closest('[data-view]');
   if(!tab || view===tab.dataset.view)return;
@@ -567,6 +577,8 @@ subjectFilter.addEventListener('click',event=>{
   render();
 });
 results.addEventListener('click',event=>{
+  const record=event.target.closest('[data-record]');
+  if(record){activateRecord(record);return;}
   const module=event.target.closest('[data-module]');
   if(module){openModule(module.dataset.module);return;}
   const zoom=event.target.closest('[data-zoom]');
