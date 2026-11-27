@@ -12,6 +12,6 @@
 
 .rec-presets.rec-binary{grid-template-columns:repeat(2,1fr)}
 
-.record-total{display:inline-flex;align-items:baseline;gap:4px}
-.record-total strong{color:var(--score-color);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
-.record-total small{color:var(--muted);font-size:10px}
+.record-matrix{--progress-width:54px}
+.record-matrix thead tr:first-child th:last-child,.record-matrix tbody td.progress{text-align:center;padding-inline:4px;border-left:1px solid var(--line);background:var(--panel)}
+.record-total{display:inline-grid;place-items:center;height:var(--matrix-tile);min-width:3ch;color:var(--score-color,#a0a7af);font-size:14px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
