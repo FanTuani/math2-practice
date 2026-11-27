@@ -102,7 +102,23 @@ dialog{background:#1a2130;color:var(--text);border:1px solid #444f63;border-radi
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 __PRACTICE_CSS__
 __RECORD_CSS__
-.record-shell{width:100%;max-width:1280px}
+.record-shell{width:100%;max-width:none}
+.matrix-scroll{container-type:inline-size;padding-inline:clamp(6px,1vw,18px)}
+.matrix-scroll .matrix{
+  width:100%;
+  --year-width:clamp(42px,7cqw,78px);
+  --progress-width:clamp(42px,7cqw,70px);
+  --matrix-pitch:calc((100cqw - var(--year-width) - var(--progress-width)) / var(--columns));
+  --matrix-tile:clamp(1px,calc(var(--matrix-pitch) - 3px),44px)
+}
+.matrix-scroll .matrix tbody td{padding-inline:1px}
+.matrix-scroll .progress .bar{max-width:100%}
+@container (max-width:560px){
+  .matrix-scroll .rec-cell{font-size:min(11px,calc(var(--matrix-pitch)*.8))}
+  .matrix-scroll .matrix .subject-heading span{font-size:10px;padding-inline:0}
+  .matrix-scroll .matrix .year{font-size:12px}
+  .matrix-scroll .year small{display:block;margin:0}
+}
 @media(max-width:850px){
   .matrix-layout{display:flex;flex-direction:column}
   .matrix-layout .matrix-scroll{order:-1}
@@ -275,20 +291,6 @@ function renderMatrix(rows,entries){
   }
   results.innerHTML='<div class="bank-layout matrix-layout">'+bankDirectory(entries)+'<div class="matrix-scroll"><table class="matrix" style="--columns:'+columns+'" aria-label="按年份、题型和科目排列的真题矩阵">'+colgroups+head+'<tbody>'+html+'</tbody></table></div></div>';
 }
-function fitMatrix(){
-  const table=results.querySelector('table.matrix');
-  if(!table)return;
-  const viewport=table.parentElement;
-  const style=getComputedStyle(viewport);
-  const width=viewport.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
-  const top=viewport.getBoundingClientRect().top+window.scrollY;
-  const height=innerHeight-top-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom)-8;
-  table.style.zoom='1';
-  const natural=table.getBoundingClientRect();
-  const scale=Math.min(1,(width-2)/natural.width,height>0?height/natural.height:1);
-  if(scale>0)table.style.zoom=String(scale);
-}
-window.addEventListener('resize',fitMatrix);
 function reviewMarkup(items,showTopic=false){
   items.sort((a,b)=>Number(a.q.status==='P')-Number(b.q.status==='P') || b.p.year-a.p.year || a.q.position-b.q.position);
   return items.length ? '<p class="list-note">'+items.length+' 题 · 不会优先，同状态按年份从新到旧</p><table class="list"><thead><tr><th scope="col">年份</th><th scope="col">原卷题号</th><th scope="col">科目</th><th scope="col">'+(showTopic?'知识点':'题型')+'</th><th scope="col">掌握状态</th></tr></thead><tbody>'+items.map(({p,q})=>
@@ -574,7 +576,7 @@ function render(){
     return;
   }
   renderSummary(entries.map(({q})=>q));
-  if(view==='matrix' || view==='records'){renderMatrix(rows,entries);fitMatrix();}
+  if(view==='matrix' || view==='records')renderMatrix(rows,entries);
   else results.innerHTML=reviewMarkup(entries.filter(({q})=>isWeak(q) && (!statusFilter || q.status===statusFilter)));
 }
 __PRACTICE_JS__
