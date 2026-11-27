@@ -18,7 +18,7 @@ function readRecord(key){
 }
 function recordColor(value,points){
   if(value in recordColors)return recordColors[value];
-  return recordGradient(Number(value)/points*2);
+  return recordGradient(Number(value)/points*1.5);
 }
 function recordGradient(fraction){
   const scale=Math.max(0,Math.min(1,fraction))*2;

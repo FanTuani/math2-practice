@@ -31,6 +31,7 @@ const origin = 'http://127.0.0.1:18986';
   });
   await page.goto(origin);
   await page.getByText('大观园已连接',{exact:true}).waitFor();
+  await page.locator('[data-view=matrix]').click();
   await page.locator('[data-q]').first().click();
   await page.getByText('已同步 · 大观园 #99').waitFor();
   online=false;

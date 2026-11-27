@@ -71,6 +71,8 @@ async function main() {
     const errors=[];
     page.on('pageerror', error => errors.push(error.message));
     await page.locator('#view-title').waitFor();
+    assert.equal(await page.locator('#view-title').textContent(),'真题记录');
+    await page.locator('[data-view=matrix]').click();
     const session = await (await fetch(origin+'/api/session')).json();
     assert.equal(session.connected, false);
     bridgeStarted=true;

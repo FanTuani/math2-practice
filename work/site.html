@@ -102,6 +102,12 @@ dialog{background:#1a2130;color:var(--text);border:1px solid #444f63;border-radi
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 __PRACTICE_CSS__
 __RECORD_CSS__
+.record-shell{width:100%;max-width:1280px}
+@media(max-width:850px){
+  .matrix-layout{display:flex;flex-direction:column}
+  .matrix-layout .matrix-scroll{order:-1}
+  .matrix-layout .bank-dir{border-top:1px solid var(--line)}
+}
 .mac-window .top{grid-column:1/-1;grid-row:1;position:sticky;top:0;z-index:5;background:#19212a}
 .mac-window .top-inner,.mac-window .pr-top{min-height:48px;height:48px;padding-left:94px;-webkit-app-region:drag}
 .mac-window :is(.top-inner,.pr-top) :is(button,a,input,select,.source){-webkit-app-region:no-drag}
@@ -118,8 +124,8 @@ __RECORD_CSS__
 </style>
 </head>
 <body>
-<aside class="rail"><div class="mark" aria-label="数学二">∑</div><nav class="view-tabs" aria-label="进度视图"><button type="button" data-view="matrix" aria-pressed="true"><span class="nav-icon" aria-hidden="true">▦</span>真题矩阵</button><button type="button" data-view="records" aria-pressed="false"><span class="nav-icon" aria-hidden="true">▤</span>真题记录</button><button type="button" data-view="bank" aria-pressed="false"><span class="nav-icon" aria-hidden="true">▧</span>题海</button><button type="button" data-view="review" aria-pressed="false"><span class="nav-icon" aria-hidden="true">◷</span>待复习</button></nav></aside>
-<header class="top"><div class="top-inner"><div class="breadcrumb"><span>数学二</span><span aria-hidden="true">/</span><h1 id="view-title">真题矩阵</h1></div><div class="source"><span id="daguan-connect"></span></div></div></header>
+<aside class="rail"><div class="mark" aria-label="数学二">∑</div><nav class="view-tabs" aria-label="进度视图"><button type="button" data-view="records" aria-pressed="true"><span class="nav-icon" aria-hidden="true">▤</span>真题记录</button><button type="button" data-view="matrix" aria-pressed="false"><span class="nav-icon" aria-hidden="true">▦</span>真题矩阵</button><button type="button" data-view="bank" aria-pressed="false"><span class="nav-icon" aria-hidden="true">▧</span>题海</button><button type="button" data-view="review" aria-pressed="false"><span class="nav-icon" aria-hidden="true">◷</span>待复习</button></nav></aside>
+<header class="top"><div class="top-inner"><div class="breadcrumb"><span>数学二</span><span aria-hidden="true">/</span><h1 id="view-title">真题记录</h1></div><div class="source"><span id="daguan-connect"></span></div></div></header>
 <main class="workspace">
 <section class="summary" aria-label="所选年份与科目的进度">
   <div class="distribution"><div class="distribution-line"><strong>当前范围掌握分布</strong><span id="scope-count"></span></div><div class="bar" id="overall" aria-hidden="true"></div><div class="legend" id="legend" aria-label="按掌握状态筛选"></div></div>
@@ -181,7 +187,7 @@ const dialog = document.querySelector('#detail');
 const body = document.querySelector('#detail-body');
 const bankControls = document.querySelector('#bank-controls');
 const bankSearch = document.querySelector('#bank-search');
-let view = 'matrix';
+let view = 'records';
 let statusFilter = '';
 let subject = 'all';
 let bankMode = 'map';
@@ -264,11 +270,25 @@ function renderMatrix(rows,entries){
   const columns=bands.reduce((count,group)=>count+group.width,0);
   const head='<thead><tr><th rowspan="2" scope="col">年份</th>'+typeHeaders+'<th rowspan="2" scope="col">'+(recording?'总分':'已标记')+'</th></tr><tr>'+subjectHeaders+'</tr></thead>';
   if(recording){
-    results.innerHTML='<div class="record-shell"><div class="record-caption"><strong>扣分分布</strong><span class="record-scale"><i></i>未记录 <b></b> 0 → 50% 及以上</span></div><div class="matrix-scroll"><table class="matrix record-matrix" style="--columns:'+columns+'" aria-label="逐题扣分记录">'+colgroups+head+'<tbody>'+html+'</tbody></table></div></div>';
+    results.innerHTML='<div class="record-shell"><div class="record-caption"><strong>扣分分布</strong><span class="record-scale"><i></i>未记录 <b></b> 0 → 2/3 及以上</span></div><div class="matrix-scroll"><table class="matrix record-matrix" style="--columns:'+columns+'" aria-label="逐题扣分记录">'+colgroups+head+'<tbody>'+html+'</tbody></table></div></div>';
     return;
   }
   results.innerHTML='<div class="bank-layout matrix-layout">'+bankDirectory(entries)+'<div class="matrix-scroll"><table class="matrix" style="--columns:'+columns+'" aria-label="按年份、题型和科目排列的真题矩阵">'+colgroups+head+'<tbody>'+html+'</tbody></table></div></div>';
 }
+function fitMatrix(){
+  const table=results.querySelector('table.matrix');
+  if(!table)return;
+  const viewport=table.parentElement;
+  const style=getComputedStyle(viewport);
+  const width=viewport.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+  const top=viewport.getBoundingClientRect().top+window.scrollY;
+  const height=innerHeight-top-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom)-8;
+  table.style.zoom='1';
+  const natural=table.getBoundingClientRect();
+  const scale=Math.min(1,(width-2)/natural.width,height>0?height/natural.height:1);
+  if(scale>0)table.style.zoom=String(scale);
+}
+window.addEventListener('resize',fitMatrix);
 function reviewMarkup(items,showTopic=false){
   items.sort((a,b)=>Number(a.q.status==='P')-Number(b.q.status==='P') || b.p.year-a.p.year || a.q.position-b.q.position);
   return items.length ? '<p class="list-note">'+items.length+' 题 · 不会优先，同状态按年份从新到旧</p><table class="list"><thead><tr><th scope="col">年份</th><th scope="col">原卷题号</th><th scope="col">科目</th><th scope="col">'+(showTopic?'知识点':'题型')+'</th><th scope="col">掌握状态</th></tr></thead><tbody>'+items.map(({p,q})=>
@@ -554,7 +574,7 @@ function render(){
     return;
   }
   renderSummary(entries.map(({q})=>q));
-  if(view==='matrix' || view==='records')renderMatrix(rows,entries);
+  if(view==='matrix' || view==='records'){renderMatrix(rows,entries);fitMatrix();}
   else results.innerHTML=reviewMarkup(entries.filter(({q})=>isWeak(q) && (!statusFilter || q.status===statusFilter)));
 }
 __PRACTICE_JS__
@@ -677,7 +697,7 @@ function clearPaperLink(){
   }
 }
 function displayWorkspace(saved){
-  view=Object.hasOwn(viewTitles,saved?.view)?saved.view:'matrix';
+  view=Object.hasOwn(viewTitles,saved?.view)?saved.view:'records';
   subject=Object.hasOwn(subjects,saved?.subject)?saved.subject:'all';
   bankMode=saved?.bankMode==='weak'?'weak':'map';
   chapterFilter=Object.hasOwn(chapters,saved?.chapterFilter)?saved.chapterFilter:'';
