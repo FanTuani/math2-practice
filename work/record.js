@@ -4,7 +4,6 @@ const recordColors={green:'#55b393',yellow:'#e2bc59',red:'#df666b'};
 const recordNames={green:'绿色',yellow:'黄色',red:'红色'};
 const recordEditor=document.querySelector('#record-editor');
 const recordNotice=document.querySelector('#record-notice');
-const recordBrush=document.querySelector('#record-brush');
 let recordKey='';
 function isObjective(key){
   return ['选择题','填空题'].includes(entriesByKey.get(key).q.type);
@@ -74,7 +73,6 @@ function editTotal(button){
         else localStorage.setItem(recordPrefix+key,value);
       }catch{recordNotice.textContent='保存失败，请检查本机存储';return;}
       recordUndo.push({key,value,previous,title:year+' 年总分'});
-      document.querySelector('#record-undo').disabled=false;
     }
     dismissRecord();
     refreshWorkspaceData();
@@ -112,7 +110,6 @@ function saveRecord(key,value){
       else localStorage.setItem(recordPrefix+key,value);
     }catch{recordNotice.textContent='保存失败，请检查本机存储';return false;}
     recordUndo.push({key,previous,value});
-    document.querySelector('#record-undo').disabled=false;
   }
   dismissRecord();
   refreshWorkspaceData();
@@ -132,11 +129,9 @@ function undoRecord(){
       recordNotice.textContent='已撤销 · '+(last.title??practiceQuestionTitle(entriesByKey.get(last.key)));
     }catch{recordUndo.push(last);recordNotice.textContent='撤销失败，请检查本机存储';}
   }
-  document.querySelector('#record-undo').disabled=!recordUndo.length;
 }
 function activateRecord(button){
   const key=button.dataset.record;
-  if(recordBrush.value!=='edit' && saveRecord(key,recordBrush.value))return;
   recordKey=key;
   const entry=entriesByKey.get(key),points=practiceText[key].points,value=readRecord(key);
   const objective=isObjective(key);
@@ -157,8 +152,13 @@ recordEditor.addEventListener('click',event=>{
   const button=event.target.closest('[data-loss]');
   if(button)saveRecord(recordKey,button.dataset.loss);
 });
-document.querySelector('#record-undo').addEventListener('click',undoRecord);
-recordBrush.addEventListener('change',()=>{recordNotice.textContent=recordBrush.value==='edit'?'':'点选题格即可连续标记';});
+document.addEventListener('keydown',event=>{
+  if(view==='records' && !dialog.open && !recordEditor.matches(':popover-open') && recordUndo.length &&
+      (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase()==='z'){
+    event.preventDefault();
+    undoRecord();
+  }
+});
 window.addEventListener('resize',dismissRecord);
 window.addEventListener('storage',event=>{
   if(view==='records' && (!event.key || event.key.startsWith(recordPrefix))){dismissRecord();refreshWorkspaceData();}
