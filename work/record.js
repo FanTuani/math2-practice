@@ -58,6 +58,21 @@ function recordTotal(paper){
   const label=paper.year+' 年 · '+(manual!==null?'手填 '+manual+' 分，':'')+'逐题累计 '+score+' 分，点击编辑总分';
   return '<button type="button" class="record-total" data-total="'+paper.year+'" data-max="'+maximum+'" data-sum="'+score+'"'+(different?' data-different':'')+color+' title="'+label+'" aria-label="'+label+'">'+displayed+'</button>';
 }
+function refreshRecordedScore(key){
+  const isTotal=key.startsWith('total-');
+  const year=isTotal?key.slice(6):key.split('-')[0];
+  const totalSelector='[data-total="'+year+'"]';
+  const oldTotal=results.querySelector(totalSelector);
+  const oldText=oldTotal?.textContent, oldMismatch=oldTotal?.hasAttribute('data-different');
+  refreshWorkspaceData();
+  const total=results.querySelector(totalSelector);
+  const target=isTotal?total:results.querySelector('[data-record="'+key+'"]');
+  target?.classList.add('record-confirm');
+  if(!isTotal && total && (total.textContent!==oldText || total.hasAttribute('data-different')!==oldMismatch)){
+    total.classList.add('record-tally');
+  }
+  target?.focus({preventScroll:true});
+}
 function editTotal(button){
   const year=button.dataset.total;
   const key='total-'+year;
@@ -75,8 +90,7 @@ function editTotal(button){
       recordUndo.push({key,value,previous,title:year+' 年总分'});
     }
     dismissRecord();
-    refreshWorkspaceData();
-    results.querySelector('[data-total="'+year+'"]')?.focus({preventScroll:true});
+    refreshRecordedScore(key);
     recordNotice.textContent=year+' 年 · '+(value===null?'已恢复逐题合计':'已保存总分');
   }
   recordEditor.querySelector('form').onsubmit=event=>{
@@ -112,8 +126,7 @@ function saveRecord(key,value){
     recordUndo.push({key,previous,value});
   }
   dismissRecord();
-  refreshWorkspaceData();
-  document.querySelector('[data-record="'+key+'"]')?.focus({preventScroll:true});
+  refreshRecordedScore(key);
   recordNotice.textContent=practiceQuestionTitle(entriesByKey.get(key))+' · '+(value===null?'已清除':recordNames[value]|| (value==='0'?'满分':'−'+value+' 分'));
   return true;
 }
@@ -125,7 +138,7 @@ function undoRecord(){
     try{
       if(last.previous===null)localStorage.removeItem(recordPrefix+last.key);
       else localStorage.setItem(recordPrefix+last.key,last.previous);
-      refreshWorkspaceData();
+      refreshRecordedScore(last.key);
       recordNotice.textContent='已撤销 · '+(last.title??practiceQuestionTitle(entriesByKey.get(last.key)));
     }catch{recordUndo.push(last);recordNotice.textContent='撤销失败，请检查本机存储';}
   }
@@ -143,10 +156,14 @@ function activateRecord(button){
   (recordEditor.querySelector('[aria-pressed=true]')||recordEditor.querySelector('button')).focus({preventScroll:true});
 }
 function positionRecordEditor(button){
+  recordEditor.classList.remove('record-enter');
   recordEditor.showPopover();
   const rect=button.getBoundingClientRect(), box=recordEditor.getBoundingClientRect();
   recordEditor.style.left=Math.max(8,Math.min(innerWidth-box.width-8,rect.left+(rect.width-box.width)/2))+'px';
   recordEditor.style.top=Math.max(8,rect.bottom+box.height+8<=innerHeight?rect.bottom+6:rect.top-box.height-6)+'px';
+  const x=Math.min(box.width,Math.max(0,rect.left+rect.width/2-parseFloat(recordEditor.style.left)));
+  recordEditor.style.transformOrigin=x+'px '+(parseFloat(recordEditor.style.top)>=rect.bottom?'top':'bottom');
+  recordEditor.classList.add('record-enter');
 }
 recordEditor.addEventListener('click',event=>{
   const button=event.target.closest('[data-loss]');

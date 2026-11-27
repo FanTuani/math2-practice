@@ -21,3 +21,31 @@ button.record-total{width:100%;padding:0;border:0;border-radius:4px;background:t
 .total-form{display:flex;gap:8px;margin:14px 0 0}
 .total-form input,.total-form button{border:1px solid #526174;background:#303d4c;color:var(--text);border-radius:5px;padding:7px 10px}
 .total-form input{min-width:0;flex:1;font:inherit}
+
+/* Direct manipulation feedback stays local to the control being used. */
+:is(.rec-cell,.record-total,#record-editor button,#cloud-open,#cloud-dialog button):active{
+  filter:brightness(1.15)
+}
+@media (prefers-reduced-motion:no-preference){
+  :is(.rec-cell,.record-total,#record-editor button,#cloud-open,#cloud-dialog button){
+    transition:scale 120ms ease-out,filter 120ms ease-out,background-color 140ms ease-out
+  }
+  :is(.rec-cell,.record-total,#record-editor button,#cloud-open,#cloud-dialog button):active{scale:.94}
+  #record-editor.record-enter{animation:record-enter 155ms cubic-bezier(.17,.76,.27,1)}
+  #cloud-dialog[open]{animation:record-enter 155ms ease-out}
+  .record-confirm{animation:record-confirm 360ms cubic-bezier(.2,.75,.3,1)}
+  .record-tally{animation:record-tally 300ms ease-out}
+}
+@keyframes record-enter{
+  from{opacity:.25;transform:scale(.97) translateY(3px)}
+  to{opacity:1;transform:none}
+}
+@keyframes record-confirm{
+  0%{scale:.92;box-shadow:inset 0 0 0 2px #e0fff0b8}
+  48%{scale:1.035;box-shadow:inset 0 0 0 1px #e0fff06b}
+  100%{scale:1;box-shadow:inset 0 0 0 0 transparent}
+}
+@keyframes record-tally{
+  from{translate:0 2px;background-color:#81c5ab30}
+  to{translate:0 0;background-color:transparent}
+}
