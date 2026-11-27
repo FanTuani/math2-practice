@@ -15,3 +15,9 @@
 .record-matrix{--progress-width:54px}
 .record-matrix thead tr:first-child th:last-child,.record-matrix tbody td.progress{text-align:center;padding-inline:4px;border-left:1px solid var(--line);background:var(--panel)}
 .record-total{display:inline-grid;place-items:center;height:var(--matrix-tile);min-width:3ch;color:var(--score-color,#a0a7af);font-size:14px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+button.record-total{width:100%;padding:0;border:0;border-radius:4px;background:transparent}
+.record-total:hover,.record-total:focus-visible{background:#303d4c}
+.record-total[data-different]{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.total-form{display:flex;gap:8px;margin:14px 0 0}
+.total-form input,.total-form button{border:1px solid #526174;background:#303d4c;color:var(--text);border-radius:5px;padding:7px 10px}
+.total-form input{min-width:0;flex:1;font:inherit}

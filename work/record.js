@@ -12,7 +12,7 @@ function isObjective(key){
 function readRecord(key){
   try{
     const stored=localStorage.getItem(recordPrefix+key);
-    if(isObjective(key) && Number(stored)>0)return String(practiceText[key].points);
+    if(!key.startsWith('total-') && isObjective(key) && Number(stored)>0)return String(practiceText[key].points);
     return stored;
   }catch{return null;}
 }
@@ -38,20 +38,57 @@ function recordCell(p,q){
   return '<button type="button" class="cell rec-cell" data-record="'+key+'" '+(fill?'style="--record-fill:'+fill+'" data-filled':'')+' title="'+label+'" aria-label="'+label+'">'+mark+'</button>';
 }
 function recordTotal(paper){
-  let score=0, scored=0;
+  let score=0, scored=0, marked=false, maximum=0;
   for(const q of paper.questions){
     const key=paper.year+'-'+q.position;
     const points=practiceText[key].points;
     const value=readRecord(key);
+    maximum+=points;
+    if(value!==null)marked=true;
     if(value!==null && /^\d+$/.test(value) && Number(value)<=points){
       score+=points-Number(value);
       scored++;
     }
   }
   const complete=!paper.partial && scored===paper.questions.length;
-  const color=complete?' style="--score-color:'+recordGradient((130-score)/30)+'"':'';
-  const label=(paper.partial?'节选':'整卷')+'累计 '+score+' 分，已计分 '+scored+' / '+paper.questions.length+' 题';
-  return '<span class="record-total"'+color+' title="'+label+'" aria-label="'+label+'">'+score+'</span>';
+  const key='total-'+paper.year;
+  const manual=readRecord(key);
+  const displayed=manual??(marked?String(score):'-');
+  const different=manual!==null && Number(manual)!==score;
+  const color=complete?' style="--score-color:'+recordGradient((130-Number(displayed))/30)+'"':'';
+  const label=paper.year+' 年 · '+(manual!==null?'手填 '+manual+' 分，':'')+'逐题累计 '+score+' 分，点击编辑总分';
+  return '<button type="button" class="record-total" data-total="'+paper.year+'" data-max="'+maximum+'" data-sum="'+score+'"'+(different?' data-different':'')+color+' title="'+label+'" aria-label="'+label+'">'+displayed+'</button>';
+}
+function editTotal(button){
+  const year=button.dataset.total;
+  const key='total-'+year;
+  const previous=readRecord(key);
+  recordEditor.innerHTML='<header><strong id="record-heading">'+year+' 年总分</strong><span>逐题累计 '+button.dataset.sum+' 分</span></header><form class="total-form"><input aria-label="手填总分" type="number" min="0" max="'+button.dataset.max+'" step="any" placeholder="0–'+button.dataset.max+'"><button type="submit">保存</button></form><footer><button class="rec-clear" type="button">恢复逐题合计</button></footer>';
+  const input=recordEditor.querySelector('input');
+  input.value=previous??(button.textContent==='-'?'':button.textContent);
+  function commit(value){
+    if(readRecord(key)!==previous){dismissRecord();refreshWorkspaceData();recordNotice.textContent='总分已更新，请重新编辑';return;}
+    if(value!==previous){
+      try{
+        if(value===null)localStorage.removeItem(recordPrefix+key);
+        else localStorage.setItem(recordPrefix+key,value);
+      }catch{recordNotice.textContent='保存失败，请检查本机存储';return;}
+      recordUndo.push({key,value,previous,title:year+' 年总分'});
+      document.querySelector('#record-undo').disabled=false;
+    }
+    dismissRecord();
+    refreshWorkspaceData();
+    results.querySelector('[data-total="'+year+'"]')?.focus({preventScroll:true});
+    recordNotice.textContent=year+' 年 · '+(value===null?'已恢复逐题合计':'已保存总分');
+  }
+  recordEditor.querySelector('form').onsubmit=event=>{
+    event.preventDefault();
+    commit(input.value===''?null:String(input.valueAsNumber));
+  };
+  recordEditor.querySelector('.rec-clear').onclick=()=>commit(null);
+  positionRecordEditor(button);
+  input.focus({preventScroll:true});
+  input.select();
 }
 function dismissRecord(){
   if(recordEditor.matches(':popover-open'))recordEditor.hidePopover();
@@ -92,7 +129,7 @@ function undoRecord(){
       if(last.previous===null)localStorage.removeItem(recordPrefix+last.key);
       else localStorage.setItem(recordPrefix+last.key,last.previous);
       refreshWorkspaceData();
-      recordNotice.textContent='已撤销 · '+practiceQuestionTitle(entriesByKey.get(last.key));
+      recordNotice.textContent='已撤销 · '+(last.title??practiceQuestionTitle(entriesByKey.get(last.key)));
     }catch{recordUndo.push(last);recordNotice.textContent='撤销失败，请检查本机存储';}
   }
   document.querySelector('#record-undo').disabled=!recordUndo.length;
@@ -107,11 +144,14 @@ function activateRecord(button){
   const choices=losses.map(i=>'<button data-loss="'+i+'" aria-pressed="'+(String(i)===value)+'" style="--swatch:'+recordColor(String(i),points)+'">'+(i?'−'+i:'满分')+'</button>').join('');
   const colors=objective?'':'仅标颜色 '+Object.entries(recordNames).map(([name,label])=>'<button class="record-dot" data-loss="'+name+'" style="--swatch:'+recordColors[name]+'" title="'+label+'" aria-label="仅标'+label+'" aria-pressed="'+(value===name)+'"></button>').join('');
   recordEditor.innerHTML='<header><strong id="record-heading">'+practiceQuestionTitle(entry)+'</strong><span>满分 '+points+' 分</span></header><div class="rec-topic">'+entry.q.topic+'</div><div class="rec-presets'+(objective?' rec-binary':'')+'">'+choices+'</div><footer>'+colors+'<button class="rec-clear" data-loss="clear">清除记录</button></footer>';
+  positionRecordEditor(button);
+  (recordEditor.querySelector('[aria-pressed=true]')||recordEditor.querySelector('button')).focus({preventScroll:true});
+}
+function positionRecordEditor(button){
   recordEditor.showPopover();
   const rect=button.getBoundingClientRect(), box=recordEditor.getBoundingClientRect();
   recordEditor.style.left=Math.max(8,Math.min(innerWidth-box.width-8,rect.left+(rect.width-box.width)/2))+'px';
   recordEditor.style.top=Math.max(8,rect.bottom+box.height+8<=innerHeight?rect.bottom+6:rect.top-box.height-6)+'px';
-  (recordEditor.querySelector('[aria-pressed=true]')||recordEditor.querySelector('button')).focus({preventScroll:true});
 }
 recordEditor.addEventListener('click',event=>{
   const button=event.target.closest('[data-loss]');

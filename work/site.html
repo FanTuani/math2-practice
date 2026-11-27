@@ -577,6 +577,8 @@ subjectFilter.addEventListener('click',event=>{
   render();
 });
 results.addEventListener('click',event=>{
+  const total=event.target.closest('[data-total]');
+  if(total){editTotal(total);return;}
   const record=event.target.closest('[data-record]');
   if(record){activateRecord(record);return;}
   const module=event.target.closest('[data-module]');
