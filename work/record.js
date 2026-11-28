@@ -1,5 +1,29 @@
 const recordPrefix='math2.exam-record.v1.';
 const recordUndo=[];
+const recordFlags={careless:'粗心',learned:'已学会'};
+function activeFlags(key){
+  return Object.keys(recordFlags).filter(flag=>readRecord(flag+'-'+key)==='1');
+}
+function writeRecord(key,value,kind){
+  if(value===null)localStorage.removeItem(recordPrefix+key);
+  else localStorage.setItem(recordPrefix+key,value);
+}
+// Keep a batch as one undo step, including any successful writes before a storage failure.
+function applyRecordChanges(target,title,updates,kind='edit'){
+  const step={target,title,kind,changes:[]};
+  let complete=true;
+  try{
+    for(const [key,value] of updates){
+      const previous=readRecord(key);
+      if(previous===value)continue;
+      writeRecord(key,value,kind);
+      step.changes.push({key,previous,value});
+    }
+  }catch{complete=false;}
+  if(step.changes.length)recordUndo.push(step);
+  if(!complete)recordNotice.textContent='存储失败，已保存 '+step.changes.length+' 项';
+  return complete;
+}
 const recordColors={green:'#55b393',yellow:'#e2bc59',red:'#df666b'};
 const recordNames={green:'绿色',yellow:'黄色',red:'红色'};
 const recordEditor=document.querySelector('#record-editor');
@@ -11,7 +35,7 @@ function isObjective(key){
 function readRecord(key){
   try{
     const stored=localStorage.getItem(recordPrefix+key);
-    if(!key.startsWith('total-') && isObjective(key) && Number(stored)>0)return String(practiceText[key].points);
+    if(Number(stored)>0 && entriesByKey.has(key) && isObjective(key))return String(practiceText[key].points);
     return stored;
   }catch{return null;}
 }
@@ -33,8 +57,10 @@ function recordCell(p,q){
   const pending=manual && isObjective(key);
   const fill=!pending && (hasScore || manual)?recordColor(value,points):'';
   const mark=pending?'?':manual?({green:'●',yellow:'▲',red:'◆'})[value]:hasScore?(value==='0'?'✓':'−'+value):q.position;
-  const label=titleText(p,q)+'，'+points+' 分，'+(pending?'旧颜色记录，待确认分数':manual?recordNames[value]+'标记':hasScore?'扣 '+value+' 分':'未记录');
-  return '<button type="button" class="cell rec-cell" data-record="'+key+'" '+(fill?'style="--record-fill:'+fill+'" data-filled':'')+' title="'+label+'" aria-label="'+label+'">'+mark+'</button>';
+  const flags=activeFlags(key);
+  const badges=flags.map(flag=>'<i aria-hidden="true" class="rec-badge '+flag+'"></i>').join('');
+  const label=titleText(p,q)+'，'+points+' 分，'+(pending?'旧颜色记录，待确认分数':manual?recordNames[value]+'标记':hasScore?'扣 '+value+' 分':'未记录')+flags.map(flag=>'，'+recordFlags[flag]).join('');
+  return '<button type="button" class="cell rec-cell" data-record="'+key+'" '+(fill?'style="--record-fill:'+fill+'" data-filled':'')+' title="'+label+'" aria-label="'+label+'">'+mark+badges+'</button>';
 }
 function recordTotal(paper){
   let score=0, scored=0, marked=false, maximum=0;
@@ -77,18 +103,17 @@ function editTotal(button){
   const year=button.dataset.total;
   const key='total-'+year;
   const previous=readRecord(key);
-  recordEditor.innerHTML='<header><strong id="record-heading">'+year+' 年总分</strong><span>逐题累计 '+button.dataset.sum+' 分</span></header><form class="total-form"><input aria-label="手填总分" type="number" min="0" max="'+button.dataset.max+'" step="any" placeholder="0–'+button.dataset.max+'"><button type="submit">保存</button></form><footer><button class="rec-clear" type="button">恢复逐题合计</button></footer>';
+  const yearKeys=Array.from(entriesByKey.keys()).filter(k=>k.startsWith(year+'-'));
+  const unmarked=()=>yearKeys.filter(k=>readRecord(k)===null && !activeFlags(k).length);
+  const count=unmarked().length;
+  const latest=recordUndo.at(-1);
+  const canUndo=latest?.kind==='fill' && latest.target===key;
+  recordEditor.innerHTML='<header><strong id="record-heading">'+year+' 年总分</strong><span>逐题累计 '+button.dataset.sum+' 分</span></header><form class="total-form"><input aria-label="手填总分" type="number" min="0" max="'+button.dataset.max+'" step="any" placeholder="0–'+button.dataset.max+'"><button type="submit">保存</button></form><div class="rec-bulk"><button type="button" data-fill-year '+(count?'':'disabled')+'>未标记补满分 <small>'+count+' 题</small></button></div><footer>'+(canUndo?'<button type="button" class="rec-undo">撤销补全</button>':'')+'<button class="rec-clear" type="button">恢复逐题合计</button></footer>';
   const input=recordEditor.querySelector('input');
   input.value=previous??(button.textContent==='-'?'':button.textContent);
   function commit(value){
     if(readRecord(key)!==previous){dismissRecord();refreshWorkspaceData();recordNotice.textContent='总分已更新，请重新编辑';return;}
-    if(value!==previous){
-      try{
-        if(value===null)localStorage.removeItem(recordPrefix+key);
-        else localStorage.setItem(recordPrefix+key,value);
-      }catch{recordNotice.textContent='保存失败，请检查本机存储';return;}
-      recordUndo.push({key,value,previous,title:year+' 年总分'});
-    }
+    if(!applyRecordChanges(key,year+' 年总分',[[key,value]]))return;
     dismissRecord();
     refreshRecordedScore(key);
     recordNotice.textContent=year+' 年 · '+(value===null?'已恢复逐题合计':'已保存总分');
@@ -98,9 +123,21 @@ function editTotal(button){
     commit(input.value===''?null:String(input.valueAsNumber));
   };
   recordEditor.querySelector('.rec-clear').onclick=()=>commit(null);
+  recordEditor.querySelector('[data-fill-year]').onclick=()=>{
+    const blanks=unmarked();
+    dismissRecord();
+    const saved=applyRecordChanges(key,year+' 年补全',blanks.map(k=>[k,'0']),'fill');
+    refreshRecordedScore(key);
+    if(saved)recordNotice.textContent=year+' 年 · 已补全 '+blanks.length+' 题';
+  };
+  if(canUndo)recordEditor.querySelector('.rec-undo').onclick=()=>{dismissRecord();undoRecord();};
   positionRecordEditor(button);
-  input.focus({preventScroll:true});
-  input.select();
+  if(matchMedia('(pointer: coarse)').matches){
+    recordEditor.querySelector('[data-fill-year]:enabled, .rec-clear').focus({preventScroll:true});
+  }else{
+    input.focus({preventScroll:true});
+    input.select();
+  }
 }
 function dismissRecord(){
   if(recordEditor.matches(':popover-open'))recordEditor.hidePopover();
@@ -117,13 +154,11 @@ function saveRecord(key,value){
     recordNotice.textContent='本题满分 '+points+' 分，请重新选择扣分';
     return false;
   }
-  const previous=readRecord(key);
-  if(previous!==value){
-    try{
-      if(value===null)localStorage.removeItem(recordPrefix+key);
-      else localStorage.setItem(recordPrefix+key,value);
-    }catch{recordNotice.textContent='保存失败，请检查本机存储';return false;}
-    recordUndo.push({key,previous,value});
+  const updates=[[key,value]];
+  if(value===null)for(const flag of activeFlags(key))updates.push([flag+'-'+key,null]);
+  if(!applyRecordChanges(key,practiceQuestionTitle(entriesByKey.get(key)),updates)){
+    refreshWorkspaceData();
+    return false;
   }
   dismissRecord();
   refreshRecordedScore(key);
@@ -133,15 +168,18 @@ function saveRecord(key,value){
 function undoRecord(){
   const last=recordUndo.pop();
   if(!last)return;
-  if(readRecord(last.key)!==last.value){recordNotice.textContent='此题记录已更新，已保留最新修改';}
-  else{
-    try{
-      if(last.previous===null)localStorage.removeItem(recordPrefix+last.key);
-      else localStorage.setItem(recordPrefix+last.key,last.previous);
-      refreshRecordedScore(last.key);
-      recordNotice.textContent='已撤销 · '+(last.title??practiceQuestionTitle(entriesByKey.get(last.key)));
-    }catch{recordUndo.push(last);recordNotice.textContent='撤销失败，请检查本机存储';}
+  let skipped=0;
+  while(last.changes.length){
+    const change=last.changes.at(-1);
+    if(readRecord(change.key)!==change.value)skipped++;
+    else{
+      try{writeRecord(change.key,change.previous);}
+      catch{recordUndo.push(last);refreshWorkspaceData();recordNotice.textContent='撤销失败，请检查本机存储';return;}
+    }
+    last.changes.pop();
   }
+  refreshRecordedScore(last.target);
+  recordNotice.textContent='已撤销 · '+last.title+(skipped?'，已保留其他修改':'');
 }
 function activateRecord(button){
   const key=button.dataset.record;
@@ -151,7 +189,9 @@ function activateRecord(button){
   const losses=objective?[0,points]:Array.from({length:points+1},(_,i)=>i);
   const choices=losses.map(i=>'<button data-loss="'+i+'" aria-pressed="'+(String(i)===value)+'" style="--swatch:'+recordColor(String(i),points)+'">'+(i?'−'+i:'满分')+'</button>').join('');
   const colors=objective?'':'仅标颜色 '+Object.entries(recordNames).map(([name,label])=>'<button class="record-dot" data-loss="'+name+'" style="--swatch:'+recordColors[name]+'" title="'+label+'" aria-label="仅标'+label+'" aria-pressed="'+(value===name)+'"></button>').join('');
-  recordEditor.innerHTML='<header><strong id="record-heading">'+practiceQuestionTitle(entry)+'</strong><span>满分 '+points+' 分</span></header><div class="rec-topic">'+entry.q.topic+'</div><div class="rec-presets'+(objective?' rec-binary':'')+'">'+choices+'</div><footer>'+colors+'<button class="rec-clear" data-loss="clear">清除记录</button></footer>';
+  const flags=activeFlags(key);
+  const toggles=Object.entries(recordFlags).map(([flag,name])=>'<button type="button" data-flag="'+flag+'" aria-pressed="'+flags.includes(flag)+'"><i aria-hidden="true" class="rec-icon '+flag+'"></i>'+name+'</button>').join('');
+  recordEditor.innerHTML='<header><strong id="record-heading">'+practiceQuestionTitle(entry)+'</strong><span>满分 '+points+' 分</span></header><div class="rec-topic">'+entry.q.topic+'</div><div class="rec-presets'+(objective?' rec-binary':'')+'">'+choices+'</div><div class="rec-flags" role="group" aria-label="错题标记">'+toggles+'</div><footer>'+colors+'<button class="rec-clear" data-loss="clear">清除记录</button></footer>';
   positionRecordEditor(button);
   (recordEditor.querySelector('[aria-pressed=true]')||recordEditor.querySelector('button')).focus({preventScroll:true});
 }
@@ -166,6 +206,18 @@ function positionRecordEditor(button){
   recordEditor.classList.add('record-enter');
 }
 recordEditor.addEventListener('click',event=>{
+  const toggle=event.target.closest('[data-flag]');
+  if(toggle){
+    const field=toggle.dataset.flag+'-'+recordKey;
+    const value=readRecord(field)==='1'?null:'1';
+    if(applyRecordChanges(recordKey,practiceQuestionTitle(entriesByKey.get(recordKey)),[[field,value]])){
+      toggle.setAttribute('aria-pressed',String(value!==null));
+      const cell=results.querySelector('[data-record="'+recordKey+'"]');
+      const {p,q}=entriesByKey.get(recordKey);
+      if(cell)cell.outerHTML=recordCell(p,q);
+    }
+    return;
+  }
   const button=event.target.closest('[data-loss]');
   if(button)saveRecord(recordKey,button.dataset.loss);
 });

@@ -22,6 +22,32 @@ button.record-total{width:100%;padding:0;border:0;border-radius:4px;background:t
 .total-form input,.total-form button{border:1px solid #526174;background:#303d4c;color:var(--text);border-radius:5px;padding:7px 10px}
 .total-form input{min-width:0;flex:1;font:inherit}
 
+.rec-flags,.rec-bulk{display:flex;gap:8px;margin-top:12px}
+.rec-flags button,.rec-bulk button{
+  display:flex;align-items:center;justify-content:center;gap:7px;flex:1;
+  min-height:36px;padding:6px 10px;border:1px solid #526174;border-radius:6px;
+  background:transparent;color:var(--text);font:inherit;font-size:13px
+}
+.rec-flags [data-flag=careless]{--accent:#ffd394}
+.rec-flags [data-flag=learned]{--accent:#9edcff}
+.rec-flags button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 13%,#202b38);color:var(--accent);border-color:var(--accent)}
+#record-editor .rec-flags button[aria-pressed=true]:not(:focus-visible){outline:none}
+.rec-bulk button{justify-content:space-between;background:#263e39;color:#abebd2;border-color:#40665c;font-weight:600}
+.rec-bulk small{font:inherit;font-size:12px;font-variant-numeric:tabular-nums}
+.rec-bulk button:disabled{opacity:.5}
+.rec-undo{border:0;background:transparent;color:#abebd2;font:inherit;padding:6px}
+.rec-icon,.rec-badge{display:inline-block;width:8px;height:8px;flex:none;pointer-events:none}
+.rec-icon.careless,.rec-badge.careless{background:#ffd394;clip-path:polygon(0 0,100% 0,0 100%)}
+.rec-icon.learned,.rec-badge.learned{background:#9edcff;border-radius:50%}
+.record-matrix .rec-cell{position:relative}
+.rec-badge{position:absolute;top:1px;width:clamp(4px,23%,9px);height:auto;aspect-ratio:1}
+.rec-badge.careless{left:1px;background:linear-gradient(135deg,#ffd394 50%,#503817 51%)}
+.rec-badge.learned{right:1px;border:1px solid #234761}
+@media(max-width:600px){
+  .record-matrix .rec-cell::after{inset:-5px 0}
+  .rec-flags button,.rec-bulk button{min-height:40px}
+}
+
 /* Direct manipulation feedback stays local to the control being used. */
 :is(.rec-cell,.record-total,#record-editor button,#cloud-open,#cloud-dialog button):active{
   filter:brightness(1.15)
